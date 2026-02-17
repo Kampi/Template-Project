@@ -209,3 +209,13 @@ jobs:
             --title "Release $VERSION" \
             --notes-file RELEASE_NOTES.md \
             --target ${{ github.ref_name }}
+
+      - name: Upload component to ESP Component Registry
+        env:
+          VERSION: ${{ env.VERSION }}
+        uses: espressif/upload-components-ci-action@v1
+        with:
+          name: ${{ github.event.repository.name }}
+          version: ${{ env.VERSION }}
+          namespace: ${{ github.repository_owner }}
+          api_token: ${{ secrets.IDF_COMPONENT_REGISTRY_TOKEN }}

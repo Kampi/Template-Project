@@ -1,4 +1,4 @@
-name: PCB
+name: Production Data
 
 on:
   workflow_dispatch:

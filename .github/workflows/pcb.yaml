@@ -158,6 +158,11 @@ jobs:
           path: ~/cache_3d
           key: cache_3d
 
+      - name: Replace .wrl with .step in PCB file
+        shell: bash
+        run: |
+          sed -i 's/\.wrl/.step/g' ${{ env.kibot_input_dir }}/${{ env.kicad_board }}.kicad_pcb
+
       - name: Determine VERSION argument and override variant if tag
         shell: bash
         run: |

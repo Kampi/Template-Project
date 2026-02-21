@@ -434,7 +434,8 @@ import:
     definitions:
       NAME: @COPY_LOGO@
       COMMENT: Copy logo
-      LOGO: @LOGO@
+      OUTDIR: @COPY_LOGO_DIR@
+      SOURCE: @LOGO@
 
   # Schematic in PDF format
   - file: kibot_out_pdf_schematic.yaml
@@ -556,7 +557,7 @@ definitions:
   COMPANY: Kampis-Elektroecke
   DESIGNER: Daniel Kampert
 
-  LOGO: 'logos/Logo.png'
+  LOGO: 'Logos/Logo.png'
   GIT_URL: 'https://github.com/Kampi/KiCad'
 
   # Preflight ==================================================================
@@ -617,6 +618,7 @@ definitions:
   IMAGES_DIR: 'Images'
   3D_DIR: '3D'
   NETLIST_DIR: 'Netlist'
+  COPY_LOGO_DIR: 'Images'
 
   RESOURCES_DIR: './kibot_resources'
   REPORT_TEMPLATE_DIR: '@RESOURCES_DIR@/templates'

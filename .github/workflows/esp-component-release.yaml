@@ -97,7 +97,7 @@ jobs:
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 
           # Check if version variables exist, if not add them before register_component()
-          if ! grep -q "set(${REPO_NAME}_LIB_MAJOR" CMakeLists.txt; then
+          if ! grep -qF "set(${REPO_NAME}_LIB_MAJOR" CMakeLists.txt; then
             # Add version variables before register_component()
             sed -i "/register_component()/i # Library version\nset(${REPO_NAME}_LIB_MAJOR $MAJOR)\nset(${REPO_NAME}_LIB_MINOR $MINOR)\nset(${REPO_NAME}_LIB_BUILD $BUILD)\n" CMakeLists.txt
           else

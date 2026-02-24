@@ -1,4 +1,4 @@
-name: Documentation
+name: Software Documentation
 
 on:
   push:
@@ -15,11 +15,10 @@ on:
   workflow_dispatch:
 
 env:
-  # Project name
-  PROJECT_NAME: $PROJECT_NAME
-  
-  # Master branch (main or master)
-  master_branch: main
+  project_name: ${PROJECT_NAME}
+
+  # Input directory for the firmware
+  input_dir: firmware
 
 permissions:
   contents: write
@@ -27,7 +26,6 @@ permissions:
   id-token: write
 
 jobs:
-
   asciidoctor:
     runs-on: ubuntu-latest
     name: Build Documentation (AsciiDoc)
@@ -45,36 +43,36 @@ jobs:
 
     - name: Build AsciiDoc Documentation
       run: |
-        cd docs
-        mkdir -p public/pdf
+        cd ${{ env.input_dir }}/docs
+        mkdir -p ${{ env.input_dir }}/public/pdf
         
         # Build all .adoc files
         echo "Processing AsciiDoc files..."
-        for adoc_file in *.adoc; do
-          if [ -f "$adoc_file" ]; then
-            base_name="${adoc_file%.adoc}"
+        for File in *.adoc; do
+          if [ -f "$File" ]; then
+            base_name="${File%.adoc}"
             echo "  - Building $base_name..."
             
             # Generate HTML (index.adoc wird zu overview.html umbenannt)
             if [ "$base_name" = "index" ]; then
-              asciidoctor "$adoc_file" -o "public/overview.html"
+              asciidoctor "$File" -o "${{ env.input_dir }}/public/overview.html"
             else
-              asciidoctor "$adoc_file" -o "public/${base_name}.html"
+              asciidoctor "$File" -o "${{ env.input_dir }}/public/${base_name}.html"
             fi
             
             # Generate PDF
-            asciidoctor-pdf "$adoc_file" -o "public/pdf/${base_name}.pdf"
+            asciidoctor-pdf "$File" -o "${{ env.input_dir }}/public/pdf/${base_name}.pdf"
           fi
         done
         
         # Create landing page
-        cat > public/index.html << 'EOF'
+        cat > "${{ env.input_dir }}/public/index.html" << 'EOF'
         <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>$PROJECT_NAME Component Documentation</title>
+          <title>${{ env.project_name }} Component Documentation</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -158,7 +156,7 @@ jobs:
           </style>
         </head>
         <body>
-          <h1>🔥 $PROJECT_NAME Component Documentation</h1>
+          <h1>🔥 ${{ env.project_name }} Component Documentation</h1>
           
           <div class="header-info">
             <p><strong>FLIR Lepton Thermal Camera Driver for ESP32</strong></p>
@@ -181,7 +179,7 @@ jobs:
         cat >> public/index.html << 'EOF'
             <div class="doc-item">
               <h3>📋 Component Overview</h3>
-              <p>Introduction to the $PROJECT_NAME component, architecture, and getting started guide.</p>
+              <p>Introduction to the ${{ env.project_name }} component, architecture, and getting started guide.</p>
               <div class="doc-links">
                 <a href="overview.html">📄 HTML</a>
                 <a href="pdf/index.pdf">📕 PDF</a>
@@ -239,7 +237,7 @@ jobs:
           </div>
           
           <div class="footer">
-            <p><strong>$PROJECT_NAME Component</strong> - Hardware Component Description</p>
+            <p><strong>${{ env.project_name }} Component</strong> - Hardware Component Description</p>
             <p>Copyright © Daniel Kampert, 2026 | GNU General Public License v3.0</p>
             <p>Website: <a href="https://www.kampis-elektroecke.de">www.kampis-elektroecke.de</a></p>
             <p>Generated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')</p>
@@ -251,8 +249,8 @@ jobs:
     - name: Upload Artifact - Documentation
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.PROJECT_NAME }}-Documentation
-        path: docs/public
+        name: ${{ env.project_name }}-Documentation
+        path: ${{ env.input_dir }}/docs/public
 
   deploy:
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || contains(github.ref, 'refs/tags/'))
@@ -270,11 +268,11 @@ jobs:
 
     - name: Organize and create tarball
       run: |
-        mv ./${{ env.PROJECT_NAME }}-Documentation public
+        mv ./${{ env.project_name }}-Documentation ${{ env.input_dir }}/public
 
         # Create renamed copies for GitHub Releases (with -nightly suffix)
         mkdir -p release_pdfs
-        cd public/pdf
+        cd ${{ env.input_dir }}/public/pdf
         for pdf_file in *.pdf; do
           if [ -f "$pdf_file" ]; then
             base_name="${pdf_file%.pdf}"
@@ -284,7 +282,7 @@ jobs:
         cd ../..
         
         # Create tarball
-        tar zvcf $PROJECT_NAME-Docs-nightly.tar.gz -C public .
+        tar zvcf ${{ env.project_name }}-Docs-nightly.tar.gz -C ${{ env.input_dir }}/public .
 
     - name: Deploy to GitHub Releases
       env:
@@ -293,16 +291,16 @@ jobs:
         gh release view nightly 2>/dev/null || \
           gh release create nightly \
             --title "Nightly Documentation Build" \
-            --notes "Automatically generated documentation for $PROJECT_NAME component" \
+            --notes "Automatically generated documentation for ${{ env.project_name }} component" \
             --prerelease
 
         gh release upload nightly \
-          $PROJECT_NAME-Docs-nightly.tar.gz \
+          ${{ env.project_name }}-Docs-nightly.tar.gz \
           release_pdfs/*.pdf --clobber
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
+        publish_dir: ./${{ env.input_dir }}/public
         force_orphan: true

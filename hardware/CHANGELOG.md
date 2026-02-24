@@ -2,14 +2,14 @@
 
 ## [Unreleased]
 
-### Fixed
+**Fixed:**
 
--	Issue title (#1)
+- Issue title (#1)
 
-### Added
+**Added:**
 
--	Another title (#2)
+- Another title (#2)
 
-### Changed
+**Changed:**
 
-### Removed
+**Removed:**

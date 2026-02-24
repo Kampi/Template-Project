@@ -11,20 +11,24 @@ on:
       - master
       - dev
 
+env:
+  # Directory containing the KiCad project files (replaced by init script)
+  BOARD_NAME_ANCHOR: ${BOARD_NAME_ANCHOR}
+
 jobs:
-  validate-changelog:
+  validate-hardware-changelog:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Validate Changelog Format
+      - name: Validate Hardware Changelog Format
         shell: bash
         run: |
-          CHANGELOG_FILE="CHANGELOG.md"
+          CHANGELOG_FILE="${{ env.BOARD_NAME_ANCHOR }}/CHANGELOG.md"
 
-          if [ ! -f "$CHANGELOG_FILE" ]; then
+          if [ ! -f "${CHANGELOG_FILE}" ]; then
             echo "Error: CHANGELOG.md not found in directory"
             exit 1
           fi
@@ -32,15 +36,15 @@ jobs:
           echo "Validating CHANGELOG.md format..."
 
           # Check if [Unreleased] section exists
-          if ! grep -q "\[Unreleased\]" "$CHANGELOG_FILE"; then
+          if ! grep -q "\[Unreleased\]" "${CHANGELOG_FILE}"; then
             echo "Error: [Unreleased] section not found in CHANGELOG.md"
             exit 1
           fi
 
           # Extract [Unreleased] section content
-          UNRELEASED_CONTENT=$(awk '/\[Unreleased\]/,/^## \[/' "$CHANGELOG_FILE" | sed '1d;$d')
+          UNRELEASED_CONTENT=$(awk '/\[Unreleased\]/,/^## \[/' "${CHANGELOG_FILE}" | sed '1d;$d')
 
-          if [ -z "$UNRELEASED_CONTENT" ]; then
+          if [ -z "${UNRELEASED_CONTENT}" ]; then
             echo "Warning: [Unreleased] section is empty"
             exit 0
           fi
@@ -53,13 +57,13 @@ jobs:
           # Check for valid section headers
           FOUND_SECTIONS=false
           for section in "${VALID_SECTIONS[@]}"; do
-            if echo "$UNRELEASED_CONTENT" | grep -q "^$section"; then
+            if echo "${UNRELEASED_CONTENT}" | grep -q "^$section"; then
               FOUND_SECTIONS=true
               echo "✓ Found section: $section"
             fi
           done
 
-          if [ "$FOUND_SECTIONS" = false ]; then
+          if [ "${FOUND_SECTIONS}" = false ]; then
             echo "Error: No valid sections found in [Unreleased]"
             echo "Expected sections: Added, Changed, Fixed, Removed"
             exit 1
@@ -96,14 +100,14 @@ jobs:
               echo "  Content: $line"
               ERROR_COUNT=$((ERROR_COUNT + 1))
             fi
-          done <<< "$UNRELEASED_CONTENT"
+          done <<< "${UNRELEASED_CONTENT}"
 
           echo ""
-          if [ $ERROR_COUNT -gt 0 ]; then
+          if [ ${ERROR_COUNT} -gt 0 ]; then
             echo "=========================================="
             echo "Changelog validation FAILED"
             echo "=========================================="
-            echo "Found $ERROR_COUNT error(s)"
+            echo "Found ${ERROR_COUNT} error(s)"
             echo ""
             echo "Requirements:"
             echo "1. All entries must be grouped under: Added, Changed, Fixed, or Removed"
@@ -131,32 +135,32 @@ jobs:
       - name: Check for duplicate issue numbers
         shell: bash
         run: |
-          CHANGELOG_FILE="CHANGELOG.md"
+          CHANGELOG_FILE="${{ env.BOARD_NAME_ANCHOR }}/CHANGELOG.md"
 
           echo "Checking for duplicate issue numbers in [Unreleased] section..."
 
           # Extract issue numbers from [Unreleased] section
-          UNRELEASED_CONTENT=$(awk '/\[Unreleased\]/,/^## \[/' "$CHANGELOG_FILE" | sed '1d;$d')
+          UNRELEASED_CONTENT=$(awk '/\[Unreleased\]/,/^## \[/' "${CHANGELOG_FILE}" | sed '1d;$d')
 
-          if [ -z "$UNRELEASED_CONTENT" ]; then
+          if [ -z "${UNRELEASED_CONTENT}" ]; then
             echo "No content to check"
             exit 0
           fi
 
           # Extract all issue numbers
-          ISSUE_NUMBERS=$(echo "$UNRELEASED_CONTENT" | grep -oP '\(#\K[0-9]+(?=\))' || true)
+          ISSUE_NUMBERS=$(echo "${UNRELEASED_CONTENT}" | grep -oP '\(#\K[0-9]+(?=\))' || true)
 
-          if [ -z "$ISSUE_NUMBERS" ]; then
+          if [ -z "${ISSUE_NUMBERS}" ]; then
             echo "No issue numbers found"
             exit 0
           fi
 
           # Check for duplicates
-          DUPLICATES=$(echo "$ISSUE_NUMBERS" | sort | uniq -d)
+          DUPLICATES=$(echo "${ISSUE_NUMBERS}" | sort | uniq -d)
 
-          if [ -n "$DUPLICATES" ]; then
+          if [ -n "${DUPLICATES}" ]; then
             echo "Warning: Duplicate issue numbers found in [Unreleased] section:"
-            echo "$DUPLICATES" | while read -r issue; do
+            echo "${DUPLICATES}" | while read -r issue; do
               echo "  - Issue #$issue appears multiple times"
             done
             echo ""

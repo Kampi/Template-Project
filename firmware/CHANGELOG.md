@@ -1,10 +1,14 @@
-# CHANGELOG
+# Changelog
 
-## [1.0.0] - 
+## [Unreleased]
 
 **Fixed:**
 
+- Issue title (#1)
+
 **Added:**
+
+- Another title (#2)
 
 **Changed:**
 

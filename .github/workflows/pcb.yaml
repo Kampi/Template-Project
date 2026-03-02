@@ -9,6 +9,8 @@ on:
       - main
       - master
       - dev
+      - '[0-9]*.[0-9]*.[0-9]*_Dev'
+      - '[0-9]*.[0-9]*_Dev'
     paths-ignore:
       - '*.md'
 
@@ -51,7 +53,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:

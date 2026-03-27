@@ -117,7 +117,7 @@ jobs:
       - name: Initialize
         run: |
           mkdir -p log
-          echo "DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+          echo "DATE=$(date +'%Y-%m-%d %H:%M:%S')" >> ${GITHUB_ENV}
 
       # Run these changelog update steps only on tag pushes
       - name: Pull latest changes for changelog update

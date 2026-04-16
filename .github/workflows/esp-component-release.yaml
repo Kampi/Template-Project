@@ -1,3 +1,28 @@
+# =============================================================================
+# Workflow: Component Release
+# =============================================================================
+#
+# Trigger:
+#   - push to branches 'main' or 'master'
+#
+# Function:
+#   Automates the release process for an ESP-IDF component when a development
+#   branch is merged into main/master. Extracts the version from the merge
+#   commit message or branch name, then:
+#     - Updates CHANGELOG.md ([Unreleased] -> [X.Y.Z], adds new [Unreleased])
+#     - Updates version variables in CMakeLists.txt
+#     - Updates the version field in idf_component.yml
+#     - Commits all changes and pushes a new version tag
+#     - Creates a GitHub Release with generated release notes
+#
+# Variables:
+#   (none)
+#
+# Secrets:
+#   GITHUB_TOKEN        - Automatically provided by GitHub Actions.
+#                         Used to create the GitHub Release.
+# =============================================================================
+
 name: Component Release
 
 on:

@@ -1,3 +1,38 @@
+# =============================================================================
+# Workflow: PCB
+# =============================================================================
+#
+# Trigger:
+#   - workflow_dispatch: Manual trigger via GitHub UI
+#   - push to branches 'main' or 'dev' (excluding *.md changes)
+#   - push of a tag matching semantic versioning (e.g. 1.0.0)
+#
+# Function:
+#   Generates KiCad PCB project outputs using KiBot (schematics, Gerbers, BoM,
+#   3D models, cost estimation, etc.) and handles the full release process:
+#     - generate_outputs: Runs KiBot to produce all documents and artifacts,
+#       updates the CHANGELOG on tag pushes, and commits outputs back to the branch.
+#     - release: Creates a GitHub Release with the generated ZIP artifact.
+#       Only runs on tag pushes.
+#     - deploy: Publishes the generated outputs to GitHub Pages.
+#       Only runs on tag pushes.
+#
+# Variables:
+#   kicad_board         - Name of the KiCad PCB file (without extension)
+#   kibot_config        - Path to the KiBot main configuration YAML
+#   kibot_output_dir    - Output subdirectory name for KiBot results
+#   kibot_output_path   - Root output path for KiBot results
+#   kibot_input_dir     - Directory containing the KiCad project and KiBot files
+#   kibot_variant       - Active KiBot variant (DRAFT / PRELIMINARY / CHECKED / RELEASED).
+#                         Set to PRELIMINARY by init_release.yaml when a *_Dev branch
+#                         is created. Automatically overridden to RELEASED on tag pushes.
+#   master_branch       - Name of the main branch (main or master)
+#
+# Secrets:
+#   MOUSER_KEY          - API key for the Mouser distributor used by KiCost
+#   GITHUB_TOKEN        - Automatically provided by GitHub Actions (read/write contents)
+# =============================================================================
+
 name: PCB Data
 
 on:

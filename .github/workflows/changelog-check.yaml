@@ -1,3 +1,25 @@
+# =============================================================================
+# Workflow: Changelog Check
+# =============================================================================
+#
+# Trigger:
+#   - pull_request: Targeting branches 'main' or 'master'
+#   - push to branches 'main', 'master', or 'dev'
+#
+# Function:
+#   Validates that the hardware CHANGELOG.md exists and is correctly formatted.
+#   Checks that an [Unreleased] section is present and that its content only
+#   contains valid section headers (### Added, ### Changed, ### Fixed,
+#   ### Removed). Fails the workflow if the format is invalid.
+#
+# Variables:
+#   BOARD_NAME_ANCHOR   - Directory containing the KiCad project's CHANGELOG.md
+#                         (replaced by the init script at project creation)
+#
+# Secrets:
+#   (none)
+# =============================================================================
+
 name: Changelog Check
 
 on:

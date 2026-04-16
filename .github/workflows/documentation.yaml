@@ -1,3 +1,29 @@
+# =============================================================================
+# Workflow: Software Documentation
+# =============================================================================
+#
+# Trigger:
+#   - workflow_dispatch: Manual trigger via GitHub UI
+#   - push to branches 'main' or 'master' (only when docs/** or this file change)
+#   - pull_request (only when docs/** or this file change)
+#
+# Function:
+#   Builds the firmware documentation from AsciiDoc source files and deploys
+#   it to GitHub Pages:
+#     - asciidoctor: Converts all .adoc files in firmware/docs/ to HTML and PDF,
+#       generates a landing page (index.html), and uploads the result as a
+#       Pages artifact.
+#     - deploy: Deploys the uploaded artifact to GitHub Pages.
+#
+# Variables:
+#   project_name        - Name of the project (used in the generated landing page)
+#   input_dir           - Root directory of the firmware source (default: firmware)
+#
+# Secrets:
+#   GITHUB_TOKEN        - Automatically provided by GitHub Actions.
+#                         Required for GitHub Pages deployment.
+# =============================================================================
+
 name: Software Documentation
 
 on:

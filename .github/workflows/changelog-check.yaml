@@ -9,8 +9,8 @@
 # Function:
 #   Validates that the hardware CHANGELOG.md exists and is correctly formatted.
 #   Checks that an [Unreleased] section is present and that its content only
-#   contains valid section headers (### Added, ### Changed, ### Fixed,
-#   ### Removed). Fails the workflow if the format is invalid.
+#   contains valid section headers ("**Added:**", "**Changed:**", "**Fixed:**",
+#   "**Removed:**"). Fails the workflow if the format is invalid.
 #
 # Variables:
 #   BOARD_NAME_ANCHOR   - Directory containing the KiCad project's CHANGELOG.md
@@ -63,8 +63,8 @@ jobs:
             exit 1
           fi
 
-          # Extract [Unreleased] section content
-          UNRELEASED_CONTENT=$(awk '/\[Unreleased\]/,/^## \[/' "${CHANGELOG_FILE}" | sed '1d;$d')
+          # Extract [Unreleased] section content (stop at the next versioned ## [ header)
+          UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' "${CHANGELOG_FILE}")
 
           if [ -z "${UNRELEASED_CONTENT}" ]; then
             echo "Warning: [Unreleased] section is empty"
@@ -73,15 +73,15 @@ jobs:
 
           echo "Checking [Unreleased] section content..."
 
-          # Valid section headers
-          VALID_SECTIONS=("### Added" "### Changed" "### Fixed" "### Removed")
+          # Valid section headers (bold markdown format: **Added:** etc.)
+          VALID_SECTIONS=("**Added:**" "**Changed:**" "**Fixed:**" "**Removed:**")
 
           # Check for valid section headers
           FOUND_SECTIONS=false
           for section in "${VALID_SECTIONS[@]}"; do
             if echo "${UNRELEASED_CONTENT}" | grep -q "^$section"; then
               FOUND_SECTIONS=true
-              echo "✓ Found section: $section"
+              echo "Found section: $section"
             fi
           done
 

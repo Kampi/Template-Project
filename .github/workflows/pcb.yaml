@@ -95,7 +95,7 @@ jobs:
   release:
     needs: generate_outputs
     runs-on: ubuntu-latest
-    container: ghcr.io/inti-cmnb/kicad9_auto_full:latest
+    container: ghcr.io/inti-cmnb/kicad10_auto_full:latest
 
     if: github.ref_type == 'tag'
     steps:

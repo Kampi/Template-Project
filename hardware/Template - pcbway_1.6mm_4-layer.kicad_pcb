@@ -9,7 +9,7 @@
 	(paper "A3")
 	(title_block
 		(title "Template")
-		(date "2026-01-21")
+		(date ${RELEASE_DATE})
 		(rev "${REVISION}")
 		(company "${COMPANY}")
 	)

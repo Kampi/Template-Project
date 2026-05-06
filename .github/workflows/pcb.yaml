@@ -195,7 +195,7 @@ jobs:
           # Get the previous tag (all SemVer tags, excluding the current one)
           prev_tag=$(git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${current_tag}$" | head -1)
 
-          python3 ./scripts/update_changelog_links.py \
+          python3 ./scripts/python/update_changelog_links.py \
             --file "${changelog_file}" \
             --tag "${current_tag}" \
             --prev-tag "${prev_tag}" \

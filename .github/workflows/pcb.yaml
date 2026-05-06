@@ -216,6 +216,14 @@ jobs:
           path: ~/cache_3d
           key: cache_3d
 
+      - name: Cache KiCost data
+        uses: set-soft/cache@main
+        with:
+          path: |
+            ~/kicost_cache
+            ~/.cache/kicost
+          key: kicost_cache
+
       - name: Replace .wrl with .step in PCB file
         shell: bash
         run: |

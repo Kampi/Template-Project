@@ -30,21 +30,18 @@ Key features:
 
 Please check the [wiki](${GIT_URL}/wiki) for more information about the project.
 
-You can also view this project on [CADLAB.io](...).
-
 ## Directory Breakdown
 
 - **`.github`**: GitHub related files
 - **`.gitignore`**: Ignored files list
+- **`3d-print`**: Project related files for 3D printer
+- **`cad`**: Project related CAD files
+- **`firmware`**: Firmware directory
 - **`${BOARD_NAME_ANCHOR}`**: KiCad project for the PCB
-- **`production`**: Manufacturing outputs (Gerbers, documentation, etc.)
+- **`scripts`**: Additional scripts for CI/CD etc.
 - **`CHANGELOG.md`**: Version history
 - **`LICENSE`**: Project license
 - **`README.md`**: Project overview
-
-## Purchasing
-
-TBD
 
 ## Ressources
 

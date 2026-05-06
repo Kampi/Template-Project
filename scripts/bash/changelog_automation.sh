@@ -1,4 +1,31 @@
 #!/bin/bash
+#
+# changelog_automation.sh - Git commit-msg hook for automatic CHANGELOG.md updates
+#
+# Usage:
+#   Called automatically by Git as a commit-msg hook.
+#   Copy or symlink this script to .git/hooks/commit-msg.
+#
+# Commit message format:
+#   <Category>: <Message>
+#
+#   Closes: #<issue-number>
+#
+# Supported categories:
+#   Added    - New features or capabilities
+#   Changed  - Changes to existing functionality
+#   Fixed    - Bug fixes
+#   Removed  - Removed features or files
+#
+# The script reads the commit message file passed by Git, extracts the category,
+# message, and optional issue reference, and inserts a formatted entry under the
+# matching section in CHANGELOG.md. If the section does not yet exist it is
+# created automatically.
+#
+# Example commit message:
+#   Added: Support for 4-layer PCB templates
+#
+#   Closes: #42
 
 COMMIT_MSG_FILE=$1
 CHANGELOG="CHANGELOG.md"

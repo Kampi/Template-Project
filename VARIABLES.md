@@ -1,6 +1,6 @@
 # Template Variables
 
-The `init-project.sh` script replaces the following placeholders automatically when a new project is initialized from this template.
+The [`init-project.sh`](https://github.com/Kampi/KiCad) script replaces the following placeholders automatically when a new project is initialized from this template.
 
 ## File Variables (`${…}`)
 

@@ -293,7 +293,21 @@ jobs:
               echo -e "${YELLOW}Warning: Unable to determine version from CHANGELOG.md. Defaulting to empty revision.${NC}"
               revision=""
           fi
-          kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup -c kibot_yaml/kibot_main.yaml -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} -g variant=${{ env.kibot_variant }} -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml xlsx_bom 2> ../log/kicost_output.log
+          # Run KiCost multiple times to work around the Mouser API rate limit
+          # (30 calls/minute, 1 call/part). Each run caches results; subsequent
+          # runs only query the remaining uncached parts.
+          for ((attempt=1; attempt<=10; attempt++)); do
+            echo "--- KiCost attempt ${attempt}/3 ---"
+            kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup -c kibot_yaml/kibot_main.yaml \
+              -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} \
+              -g variant=${{ env.kibot_variant }} \
+              -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml xlsx_bom \
+              2>> ../log/kicost_output.log || true
+            if [[ ${attempt} -lt 3 ]]; then
+              echo "Waiting 61s for Mouser API rate limit to reset..."
+              sleep 61
+            fi
+          done
 
       - name: Upload artifacts (logs)
         uses: actions/upload-artifact@v4

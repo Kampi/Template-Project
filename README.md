@@ -10,7 +10,6 @@
   - [Table of Contents](#table-of-contents)
   - [About](#about)
   - [Directory Breakdown](#directory-breakdown)
-  - [Purchasing](#purchasing)
   - [Ressources](#ressources)
   - [Maintainer](#maintainer)
 

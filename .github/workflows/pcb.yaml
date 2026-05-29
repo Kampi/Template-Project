@@ -57,10 +57,10 @@ env:
   kibot_config: kibot_yaml/kibot_main.yaml
 
   # Input directory with the KiCad project and the KiBot files
-  kibot_input_dir: ${BOARD_NAME_ANCHOR}
+  kibot_input_dir: ${BOARD_NAME}
 
   # Output directory for the run results from KiBot
-  kibot_output_dir: ${BOARD_NAME_ANCHOR}
+  kibot_output_dir: ${BOARD_NAME}
 
   # Output path for the run results from KiBot
   kibot_output_path: ../production
@@ -234,11 +234,15 @@ jobs:
         run: |
           last_tag=$(git describe --tags --abbrev=0 || echo "")
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            version_arg="-E REVISION='${last_tag}'"
+            kibot_revision="${last_tag}"
             kibot_variant="RELEASED"
             echo "kibot_variant=RELEASED" >> ${GITHUB_ENV}
+          elif [[ -n "${last_tag}" ]]; then
+            kibot_revision="${last_tag}+ (Unreleased)"
+            kibot_variant="${{ env.kibot_variant }}"
+            echo "kibot_variant=${{ env.kibot_variant }}" >> ${GITHUB_ENV}
           else
-            version_arg="-E REVISION='${last_tag}+ (Unreleased)'"
+            kibot_revision="(Unreleased)"
             kibot_variant="${{ env.kibot_variant }}"
             echo "kibot_variant=${{ env.kibot_variant }}" >> ${GITHUB_ENV}
           fi
@@ -246,13 +250,13 @@ jobs:
           # Determine additional_args based on the variant
           case "$kibot_variant" in
             "DRAFT")
-              additional_args="--skip-pre draw_fancy_stackup,erc,drc ${version_arg} draft_group"
+              additional_args="--skip-pre draw_fancy_stackup,erc,drc draft_group"
               ;;
             "PRELIMINARY")
-              additional_args="--skip-pre erc,drc ${version_arg} all_group"
+              additional_args="--skip-pre erc,drc all_group"
               ;;
             "CHECKED"|"RELEASED")
-              additional_args="${version_arg} all_group"
+              additional_args="all_group"
               ;;
             *)
               echo "Unknown variant: $kibot_variant"
@@ -260,7 +264,7 @@ jobs:
               ;;
           esac
 
-          echo "version_arg=${version_arg}" >> ${GITHUB_ENV}
+          echo "kibot_revision=${kibot_revision}" >> ${GITHUB_ENV}
           echo "additional_args=${additional_args}" >> ${GITHUB_ENV}
 
       # Generate notes (skipped for DRAFT variant)
@@ -282,7 +286,7 @@ jobs:
         shell: bash
         run: |
           cd ${{ env.kibot_input_dir }}
-          kibot -vvvv -c ${{ env.kibot_config }} -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} -b ${{ env.kicad_board }}.kicad_pcb -g variant=${{ env.kibot_variant }} -E PDF_REPORT_ROOT_DIR=${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} ${{ env.additional_args }} 2> ../log/kibot_output.log
+          kibot -vvvv -c ${{ env.kibot_config }} -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} -b ${{ env.kicad_board }}.kicad_pcb -g variant=${{ env.kibot_variant }} -E PDF_REPORT_ROOT_DIR=${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} -E "REVISION=${{ env.kibot_revision }}" ${{ env.additional_args }} 2> ../log/kibot_output.log
 
       - name: Collect PCB costs
         shell: bash

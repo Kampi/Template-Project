@@ -32,6 +32,7 @@ Please check the [wiki](${GIT_URL}/wiki) for more information about the project.
 ## Directory Breakdown
 
 - **`.github`**: GitHub related files
+- **`.gitlab`**: GitLab related files
 - **`.gitignore`**: Ignored files list
 - **`3d-print`**: Project related files for 3D printer
 - **`cad`**: Project related CAD files

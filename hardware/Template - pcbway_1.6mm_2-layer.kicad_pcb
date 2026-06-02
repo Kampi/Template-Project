@@ -8,7 +8,7 @@
 	)
 	(paper "A3")
 	(title_block
-		(title "Template")
+		(title "")
 		(date "${RELEASE_DATE}")
 		(rev "${REVISION}")
 		(company "${COMPANY}")

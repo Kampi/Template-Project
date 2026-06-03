@@ -35,7 +35,7 @@ on:
 
 env:
   # Directory containing the KiCad project files (replaced by init script)
-  BOARD_NAME_ANCHOR: ${BOARD_NAME}
+  BOARD_NAME_ANCHOR: ${BOARD_NAME_LOWER}
 
 jobs:
   validate-hardware-changelog:

@@ -36,7 +36,7 @@ env:
   kicad_board: ${BOARD_NAME}
 
   # Input directory with the KiCad project and the KiBot files
-  kibot_input_dir: ${BOARD_NAME}
+  kibot_input_dir: ${BOARD_NAME_LOWER}
 
 jobs:
   init-release:

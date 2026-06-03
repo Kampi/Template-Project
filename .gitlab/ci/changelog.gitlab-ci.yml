@@ -23,7 +23,7 @@ changelog:validate:
   image: alpine:latest
 
   variables:
-    BOARD_NAME_ANCHOR: "${BOARD_NAME}"
+    BOARD_NAME_ANCHOR: "${BOARD_NAME_LOWER}"
 
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master")'
@@ -135,7 +135,7 @@ changelog:check-duplicates:
   image: alpine:latest
 
   variables:
-    BOARD_NAME_ANCHOR: "${BOARD_NAME}"
+    BOARD_NAME_ANCHOR: "${BOARD_NAME_LOWER}"
 
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master")'

@@ -1,6 +1,6 @@
 # ${PROJECT_NAME}
 
-[![License](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://opensource.org/license/gpl-3-0/)
+[![License](https://img.shields.io/badge/License-${LICENSE_BADGE}.svg)](${LICENSE_LINK})
 [![PCB](${GIT_URL}/actions/workflows/pcb.yaml/badge.svg)](${GIT_URL}/actions/workflows/pcb.yaml)
 [![Documentation](https://img.shields.io/badge/Documentation-HTML-007ec6?longCache=true&style=flat&logo=asciidoctor&colorA=555555)](https://${GIT_USER}.github.io/${PROJECT_NAME}/)
 

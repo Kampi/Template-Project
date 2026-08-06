@@ -775,6 +775,6 @@
     "SHEET_NAME_7": "Section A - Title A",
     "SHEET_NAME_8": "Section B - Title B",
     "SHEET_NAME_9": "Revision History",
-    "VARIANT": "PRELIMINARY"
+    "PCB_VARIANT": "PRELIMINARY"
   }
 }

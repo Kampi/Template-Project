@@ -384,6 +384,11 @@ jobs:
     needs: generate_outputs
     runs-on: ubuntu-latest
 
+    permissions:
+      pages: write
+      id-token: write
+      actions: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -398,6 +403,22 @@ jobs:
           else
             echo "kibot_variant=${{ env.kibot_variant }}" >> "${GITHUB_ENV}"
           fi
+
+      # Re-running just this job (e.g. after a transient "Fetching artifact
+      # metadata failed" error from deploy-pages) would otherwise leave a
+      # stale "github-pages" artifact from the previous attempt, causing
+      # deploy-pages to fail with "Multiple artifacts named github-pages
+      # were unexpectedly found". Remove any leftover before uploading.
+      - name: Remove stale github-pages artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --paginate \
+            --jq '.artifacts[] | select(.name=="github-pages") | .id' | \
+          while read -r artifact_id; do
+            echo "Deleting stale github-pages artifact ${artifact_id}"
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
+          done
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4

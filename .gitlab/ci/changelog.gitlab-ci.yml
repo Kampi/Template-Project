@@ -14,7 +14,7 @@
 #   entries. Fails the pipeline if the format is invalid.
 #
 # Variables:
-#   BOARD_NAME_ANCHOR   - Directory containing the KiCad project's CHANGELOG.md
+#   KIBOT_INPUT_DIR     - Directory containing the KiCad project's CHANGELOG.md
 #                         (replaced by the init script at project creation)
 # =============================================================================
 
@@ -23,7 +23,7 @@ changelog:validate:
   image: alpine:latest
 
   variables:
-    BOARD_NAME_ANCHOR: "${BOARD_NAME_LOWER}"
+    KIBOT_INPUT_DIR: "${BOARD_NAME_LOWER}"
 
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master")'
@@ -34,10 +34,10 @@ changelog:validate:
 
   script:
     - |
-      CHANGELOG_FILE="${BOARD_NAME_ANCHOR}/CHANGELOG.md"
+      CHANGELOG_FILE="${KIBOT_INPUT_DIR}/CHANGELOG.md"
 
       if [ ! -f "${CHANGELOG_FILE}" ]; then
-        echo "Error: CHANGELOG.md not found in '${BOARD_NAME_ANCHOR}'"
+        echo "Error: CHANGELOG.md not found in '${KIBOT_INPUT_DIR}'"
         exit 1
       fi
 
@@ -135,7 +135,7 @@ changelog:check-duplicates:
   image: alpine:latest
 
   variables:
-    BOARD_NAME_ANCHOR: "${BOARD_NAME_LOWER}"
+    KIBOT_INPUT_DIR: "${BOARD_NAME_LOWER}"
 
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master")'
@@ -146,10 +146,10 @@ changelog:check-duplicates:
 
   script:
     - |
-      CHANGELOG_FILE="${BOARD_NAME_ANCHOR}/CHANGELOG.md"
+      CHANGELOG_FILE="${KIBOT_INPUT_DIR}/CHANGELOG.md"
 
       if [ ! -f "${CHANGELOG_FILE}" ]; then
-        echo "Error: CHANGELOG.md not found in '${BOARD_NAME_ANCHOR}'"
+        echo "Error: CHANGELOG.md not found in '${KIBOT_INPUT_DIR}'"
         exit 1
       fi
 

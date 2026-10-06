@@ -123,6 +123,6 @@ if __name__ == "__main__":
     else:
         print(f"KiCad project variables for {version} already exist. Skipping.")
 
-    pcb_workflow_file = os.path.join(".github", "workflows", "pcb.yml")
+    pcb_workflow_file = os.path.join(".github", "workflows", "pcb.yaml")
     update_kibot_variant(pcb_workflow_file, "PRELIMINARY")
     print(f"Set kibot_variant to PRELIMINARY in {pcb_workflow_file}")

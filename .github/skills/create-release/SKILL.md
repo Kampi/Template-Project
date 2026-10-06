@@ -1,6 +1,6 @@
 ---
 name: create-release
-description: Create a hardware release x.y.z of this KiCad project. Runs ERC/DRC, switches the KiBot variant to CHECKED, pushes "Prepare Release x.y.z" to the development branch, waits for the KiBot pipeline, merges into main/master, creates and pushes the tag x.y.z and waits for the release pipeline. Use when the user asks to prepare, create or publish a release.
+description: Create a hardware release x.y.z of this KiCad project. Runs ERC/DRC, sets the changelog variables of the release in the KiBot configuration and the schematic, switches the KiBot variant to CHECKED, pushes "Prepare Release x.y.z" to the development branch, waits for the KiBot pipeline, merges into the main branch, creates and pushes the tag x.y.z, waits for the release pipeline and pulls the released state of the main branch. Use when the user asks to prepare, create or publish a release.
 ---
 
 # Create Release
@@ -12,31 +12,62 @@ and creates the GitHub release.
 
 ## Prerequisites
 
-- `git`, `kicad-cli` (KiCad 9 or newer) and an authenticated GitHub CLI (`gh auth status`).
+- `git`, `python3`, `kicad-cli` (KiCad 10 or newer) and an authenticated GitHub CLI (`gh auth status`).
 - Clean working tree (`git status --porcelain` is empty). Otherwise stop and ask the user.
-- Current branch is the development branch (e.g. `x.y.z_Dev` or `dev`).
+- Current branch is the development branch `x.y.z_Dev` (e.g. `2.3.0_Dev`). Otherwise stop and tell the user.
 
-## Gather parameters
+## Project layout
 
-Read the values from the repository instead of guessing. The template placeholders
-(see `VARIABLES.md`) are replaced by `init-project.sh`, so always read the
-current values at runtime and never hardcode names like `hardware`, `Template` or `main`:
+All commands are run from the repository root.
 
-| Parameter     | Source                                                                                       |
-| ------------- | -------------------------------------------------------------------------------------------- |
-| `VERSION`     | From the branch name `x.y.z_Dev`. Otherwise ask the user. Must match `^[0-9]+\.[0-9]+\.[0-9]+$` |
-| `DEV_BRANCH`  | `git branch --show-current`                                                                  |
-| `MAIN_BRANCH` | `master_branch` in `pcb.yaml`                                                                |
-| `INPUT_DIR`   | `kibot_input_dir` in `pcb.yaml` (directory with the KiCad project)                           |
-| `BOARD`       | `kicad_board` in `pcb.yaml` (file name of the `.kicad_pcb` / `.kicad_sch` / `.kicad_pro`)    |
+| Parameter     | Value                   | Description                                                 |
+| ------------- | ----------------------- | ----------------------------------------------------------- |
+| `INPUT_DIR`   | `${BOARD_NAME_LOWER}`   | Directory with the KiCad project and the KiBot files        |
+| `BOARD`       | `${BOARD_NAME}`         | Base name of the `.kicad_pro` / `.kicad_sch` / `.kicad_pcb` |
+| `MAIN_BRANCH` | `${MASTER_BRANCH}`      | Main branch, receives the release                           |
+| `DEV_BRANCH`  | `x.y.z_Dev`             | Current branch (`git branch --show-current`)                |
+| `VERSION`     | `x.y.z`                 | Taken from `DEV_BRANCH`. Never ask for it or take it from elsewhere |
 
-If a value still contains an unreplaced placeholder (`${...}`), fall back to:
+Files changed by this skill:
 
-- `MAIN_BRANCH`: whichever of `origin/main` / `origin/master` exists.
-- `INPUT_DIR`: the directory that contains the `.kicad_pro` file (`git ls-files '*.kicad_pro'`).
-- `BOARD`: the base name of that `.kicad_pro` file.
+| File                                                             | Step |
+| ---------------------------------------------------------------- | ---- |
+| `${BOARD_NAME_LOWER}/kibot_yaml/kibot_pre_set_text_variables.yaml` | 2    |
+| `${BOARD_NAME_LOWER}/Revision History.kicad_sch`                   | 2    |
+| `.github/workflows/pcb.yaml`                                     | 3    |
 
-Verify that `INPUT_DIR/BOARD.kicad_sch` and `INPUT_DIR/BOARD.kicad_pcb` exist before continuing.
+Shell state is not kept between commands, so set the parameters again in every command that uses them:
+
+```bash
+INPUT_DIR='${BOARD_NAME_LOWER}'
+BOARD='${BOARD_NAME}'
+MAIN_BRANCH='${MASTER_BRANCH}'
+
+DEV_BRANCH=$(git branch --show-current)
+if [[ ! "$DEV_BRANCH" =~ ^([0-9]+\.[0-9]+\.[0-9]+)_Dev$ ]]; then
+    echo "Branch '$DEV_BRANCH' is not a development branch x.y.z_Dev" >&2
+    exit 1
+fi
+VERSION=${BASH_REMATCH[1]}
+VERSION_RE=${VERSION//./\\.}
+TEXT_VARS="$INPUT_DIR/kibot_yaml/kibot_pre_set_text_variables.yaml"
+```
+
+`VERSION` is used for the changelog variables (step 2), the commit message (step 4) and the tag (step 7).
+
+## Checks before starting
+
+The pipeline uses the names from the `env` section of `pcb.yaml`, so they must match the parameters above:
+
+```bash
+grep -E '^  (kibot_input_dir|kicad_board|master_branch):' .github/workflows/pcb.yaml
+ls "$INPUT_DIR/$BOARD.kicad_pro" "$INPUT_DIR/$BOARD.kicad_sch" "$INPUT_DIR/$BOARD.kicad_pcb" "$TEXT_VARS"
+```
+
+If a name differs from `pcb.yaml`, a file is missing or a name still looks like `${...}`
+(the directory or the board was renamed, or the project was not initialized completely), do not guess.
+Determine the real names (`git ls-files '*.kicad_pro'` gives `INPUT_DIR/BOARD.kicad_pro`,
+`git branch -r` the main branch), show the user the difference and ask before continuing.
 
 Abort if the tag already exists (`git ls-remote --tags origin "refs/tags/$VERSION"` returns a result)
 or if `INPUT_DIR/CHANGELOG.md` has no entries in the `## [Unreleased]` section.
@@ -63,23 +94,146 @@ cd -
 A non-zero exit code means violations. Summarize the errors from the reports for the user and abort.
 Warnings do not block the release.
 
-### 2. Set the variant to CHECKED
+### 2. Set the version of the changelog variables
 
-- In `.github/workflows/pcb.yaml` set `  kibot_variant: <OLD>` to `  kibot_variant: CHECKED`.
-- In `INPUT_DIR/BOARD.kicad_pro` set the text variable `"PCB_VARIANT"` to `"CHECKED"` (if present).
+The changelog of a version is written into the text variables `RELEASE_TITLE_<version>` and
+`RELEASE_BODY_<version>` by the KiBot preflight `set_text_variables`. The table on the revision history
+sheet of the schematic shows them via `${RELEASE_TITLE_<version>}` and `${RELEASE_BODY_<version>}`.
+
+Free entries for the next release use the placeholder version `x.y.z`:
+
+- KiBot (`TEXT_VARS`):
+
+  ```yaml
+      - variable: '@RELEASE_TITLE_VAR@x.y.z'
+        command: '@GET_TITLE_CMD@ x.y.z'
+      - variable: '@RELEASE_BODY_VAR@x.y.z'
+        command: '@GET_BODY_CMD@ x.y.z'
+  ```
+
+- Schematic (revision history sheet): `${RELEASE_TITLE_x.y.z}` and `${RELEASE_BODY_x.y.z}`
+
+This step sets both to `VERSION`, the version from the branch name (e.g. `x.y.z` becomes `1.2.0`).
+Entries of earlier versions stay untouched.
+
+```bash
+# Schematic sheet with the revision history table
+REV_SHEET=$(git grep -l -F '${RELEASE_TITLE_' -- "$INPUT_DIR/*.kicad_sch")
+```
+
+Abort and ask the user if `REV_SHEET` is not exactly one file.
+
+Before changing anything, check both files:
+
+```bash
+# Entries for VERSION already present (KiBot: active lines only)
+grep -cE "^\s*- variable: '@RELEASE_(TITLE|BODY)_VAR@${VERSION_RE}'" "$TEXT_VARS"
+grep -cE "\\$\{RELEASE_(TITLE|BODY)_${VERSION_RE}\}" "$REV_SHEET"
+# Free entries (KiBot: active or commented)
+grep -cE "^\s*(#\s*)?- variable: '@RELEASE_TITLE_VAR@x\.y\.z'" "$TEXT_VARS"
+grep -cF '${RELEASE_TITLE_x.y.z}' "$REV_SHEET"
+```
+
+A file that already has the entries for `VERSION` stays unchanged. A file without them needs a free
+`x.y.z` entry. If one is missing, stop without changing any file, show the user the versions used
+(`grep -oE "@RELEASE_TITLE_VAR@[^']+" "$TEXT_VARS"` and `grep -oE '\$\{RELEASE_TITLE_[^}]+\}' "$REV_SHEET"`)
+and ask how to continue.
+
+**KiBot:** If `TEXT_VARS` has no entry for `VERSION` yet, set the first free `x.y.z` block to `VERSION`.
+An active block is preferred. If there is only the commented example, it is uncommented, otherwise KiBot
+would not run it. The `UNRELEASED` entries stay untouched.
+
+```bash
+python3 - "$TEXT_VARS" "$VERSION" <<'EOF'
+import re
+import sys
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8", newline="") as f:
+    lines = f.read().splitlines(keepends=True)
+
+# The four lines of a free entry, each optionally commented out
+block = [r"- variable: '@RELEASE_TITLE_VAR@x\.y\.z'", r"  command: '@GET_TITLE_CMD@ x\.y\.z'",
+         r"- variable: '@RELEASE_BODY_VAR@x\.y\.z'", r"  command: '@GET_BODY_CMD@ x\.y\.z'"]
+pattern = [re.compile(r"^(\s*)(# ?)?(%s)(\s*)$" % b) for b in block]
+
+starts = [i for i in range(len(lines) - 3)
+          if all(pattern[k].match(lines[i + k]) for k in range(4))]
+if not starts:
+    sys.exit("No free x.y.z entry in %s" % path)
+# Prefer an active block over the commented example
+active = [i for i in starts if not pattern[0].match(lines[i]).group(2)]
+start = (active or starts)[0]
+
+for k in range(4):
+    m = pattern[k].match(lines[start + k])
+    lines[start + k] = m.group(1) + m.group(3).replace("x.y.z", version) + m.group(4)
+
+with open(path, "w", encoding="utf-8", newline="") as f:
+    f.write("".join(lines))
+EOF
+```
+
+**Schematic:** If `REV_SHEET` has no entry for `VERSION` yet, fill the first free entry: replace
+`${RELEASE_TITLE_x.y.z}` with `${RELEASE_TITLE_<VERSION>}` and `${RELEASE_BODY_x.y.z}` with
+`${RELEASE_BODY_<VERSION>}` (e.g. `${RELEASE_TITLE_1.2.0}`). With several free entries only the
+leftmost one (then topmost) is filled, the others stay free for later releases:
+
+```bash
+python3 - "$REV_SHEET" "$VERSION" <<'EOF'
+import re
+import sys
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8", newline="") as f:
+    text = f.read()
+
+for kind in ("TITLE", "BODY"):
+    placeholder = "${RELEASE_%s_x.y.z}" % kind
+    # Position of every text box with the placeholder: (text_box "..." ... (at X Y ...)
+    boxes = re.finditer(
+        r'\(text_box "%s"(?:(?!\(text_box ).)*?\(at ([-\d.]+) ([-\d.]+)' % re.escape(placeholder),
+        text, re.S)
+    first = min(boxes, key=lambda m: (float(m.group(1)), float(m.group(2))), default=None)
+    if first is None:
+        sys.exit("No free entry %s in %s" % (placeholder, path))
+    pos = first.start() + len('(text_box "')
+    text = text[:pos] + "${RELEASE_%s_%s}" % (kind, version) + text[pos + len(placeholder):]
+
+with open(path, "w", encoding="utf-8", newline="") as f:
+    f.write(text)
+EOF
+```
+
+Verify the result. KiBot and the schematic must use the same names, the schematic each exactly once:
+
+```bash
+grep -E "^\s*(- variable|  command): '@(RELEASE_(TITLE|BODY)_VAR@|GET_(TITLE|BODY)_CMD@ )${VERSION_RE}'" "$TEXT_VARS"
+grep -oE "\\$\{RELEASE_(TITLE|BODY)_${VERSION_RE}\}" "$REV_SHEET"
+git diff --stat
+```
 
 Only change these values, keep the rest of the files untouched.
 
-### 3. Commit and push to the development branch
+### 3. Set the variant to CHECKED
+
+In `.github/workflows/pcb.yaml` set `  kibot_variant: <OLD>` to `  kibot_variant: CHECKED`.
+Only change this value, keep the rest of the file untouched.
+
+### 4. Commit and push to the development branch
+
+The commit message uses the version determined from the branch name, e.g. `Prepare Release 2.3.0` on `2.3.0_Dev`.
 
 ```bash
 git pull --rebase origin "$DEV_BRANCH"
-git add .github/workflows/pcb.yaml "$INPUT_DIR/$BOARD.kicad_pro"
+# Working tree was clean before, so this only stages the changes of steps 2 and 3
+git add -u
+git diff --cached --stat
 git commit -m "Prepare Release $VERSION"
 git push origin "$DEV_BRANCH"
 ```
 
-### 4. Wait for the KiBot pipeline
+### 5. Wait for the KiBot pipeline
 
 ```bash
 SHA=$(git rev-parse HEAD)
@@ -91,12 +245,15 @@ gh run watch "$RUN_ID" --exit-status
 
 On failure show the failed jobs (`gh run view "$RUN_ID" --log-failed | tail -n 100`) and abort.
 
-### 5. Switch to the main branch and pull the result
+### 6. Pull the netlist XML, switch to the main branch and merge the development branch
 
-The pipeline pushes the generated outputs back to the development branch, so pull them first.
+The pipeline pushes the generated netlist XML (`INPUT_DIR/BOARD.xml`) back to the development branch.
+The release pipeline reads the sheet titles from it, so pull it before merging. The other outputs are
+only uploaded as workflow artifact.
 
 ```bash
 git pull --rebase origin "$DEV_BRANCH"
+ls "$INPUT_DIR/$BOARD.xml"
 git checkout "$MAIN_BRANCH"
 git pull origin "$MAIN_BRANCH"
 git pull --no-rebase --no-edit origin "$DEV_BRANCH"
@@ -104,19 +261,22 @@ git pull --no-rebase --no-edit origin "$DEV_BRANCH"
 
 On merge conflicts stop and hand over to the user.
 
-### 6. Create the tag
+### 7. Create the tag
+
+The tag is the version determined from the branch name, e.g. tag `2.3.0` on `2.3.0_Dev`. It must match
+the version used in step 2 and in the commit message of step 4.
 
 ```bash
 git tag "$VERSION"
 ```
 
-### 7. Push the main branch and the tag
+### 8. Push the main branch and the tag
 
 ```bash
 git push --atomic origin "$MAIN_BRANCH" "$VERSION"
 ```
 
-### 8. Wait for the release pipeline
+### 9. Wait for the release pipeline
 
 ```bash
 SHA=$(git rev-parse HEAD)
@@ -127,3 +287,16 @@ gh run watch <RUN_ID> --exit-status   # for each listed run, the tag run is mand
 
 On success report the release URL (`gh release view "$VERSION" --json url --jq .url`).
 On failure show the failed log and abort. Never delete or move the tag without asking the user.
+
+### 10. Pull the release state
+
+The release pipeline pushes the updated `CHANGELOG.md` and the release outputs to the main branch.
+Pull them, so the local main branch has the released state:
+
+```bash
+git checkout "$MAIN_BRANCH"
+git pull --ff-only origin "$MAIN_BRANCH"
+git log --oneline -n 5
+```
+
+`MAIN_BRANCH` is the branch from `master_branch` in `pcb.yaml` (`main` or `master`).

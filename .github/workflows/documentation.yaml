@@ -4,8 +4,8 @@
 #
 # Trigger:
 #   - workflow_dispatch: Manual trigger via GitHub UI
-#   - push to branches 'main' or 'master' (only when docs/** or this file change)
-#   - pull_request (only when docs/** or this file change)
+#   - push to branches 'main' or 'master' (only when firmware/docs/** or this file change)
+#   - pull_request (only when firmware/docs/** or this file change)
 #
 # Function:
 #   Builds the firmware documentation from AsciiDoc source files and deploys
@@ -32,11 +32,11 @@ on:
       - main
       - master
     paths:
-      - 'docs/**'
+      - 'firmware/docs/**'
       - '.github/workflows/documentation.yaml'
   pull_request:
     paths:
-      - 'docs/**'
+      - 'firmware/docs/**'
       - '.github/workflows/documentation.yaml'
   workflow_dispatch:
 

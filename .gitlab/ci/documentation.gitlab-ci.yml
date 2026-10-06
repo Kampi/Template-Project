@@ -4,8 +4,8 @@
 #
 # Trigger:
 #   - Manually via GitLab UI (web trigger)
-#   - Push to 'main' or 'master' (only when docs/** or this file change)
-#   - Merge request (only when docs/** or this file change)
+#   - Push to 'main' or 'master' (only when firmware/docs/** or this file change)
+#   - Merge request (only when firmware/docs/** or this file change)
 #
 # Function:
 #   Builds the firmware documentation from AsciiDoc source files and deploys
@@ -34,11 +34,11 @@ documentation:build:
     - if: '$CI_PIPELINE_SOURCE == "web"'
     - if: '$CI_COMMIT_BRANCH =~ /^(main|master)$/ && $CI_PIPELINE_SOURCE == "push"'
       changes:
-        - "docs/**/*"
+        - "firmware/docs/**/*"
         - ".gitlab/ci/documentation.gitlab-ci.yml"
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
-        - "docs/**/*"
+        - "firmware/docs/**/*"
         - ".gitlab/ci/documentation.gitlab-ci.yml"
 
   before_script:

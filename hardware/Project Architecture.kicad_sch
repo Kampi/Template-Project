@@ -280,7 +280,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Sheetfile" "Section B - TItle B.kicad_sch"
+		(property "Sheetfile" "Section B - Title B.kicad_sch"
 			(at 190.5 135.2046 0)
 			(show_name no)
 			(do_not_autoplace no)

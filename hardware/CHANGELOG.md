@@ -1,16 +1,15 @@
 # Changelog
 
-## \[Unreleased]
+## [Unreleased]
 
 **Fixed:**
 
-* Issue title (#1)
+- Issue title (#1)
 
 **Added:**
 
-* Another title (#2)
+- Another title (#2)
 
 **Changed:**
 
 **Removed:**
-

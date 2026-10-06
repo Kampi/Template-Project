@@ -37,7 +37,7 @@ Please check the [wiki](${GIT_URL}/wiki) for more information about the project.
 - **`3d-print`**: Project related files for 3D printer
 - **`cad`**: Project related CAD files
 - **`firmware`**: Firmware directory
-- **`${BOARD_NAME_ANCHOR}`**: KiCad project for the PCB
+- **`${BOARD_NAME_LOWER}`**: KiCad project for the PCB
 - **`scripts`**: Additional scripts for CI/CD etc.
 - **`CHANGELOG.md`**: Version history
 - **`LICENSE`**: Project license

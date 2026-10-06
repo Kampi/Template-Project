@@ -11,7 +11,7 @@
 #     - Adds RELEASE_TITLE_X.Y.Z and RELEASE_BODY_X.Y.Z entries to the
 #       KiBot preflight YAML (kibot_pre_set_text_variables.yaml)
 #     - Adds the corresponding text variables to the KiCad project file (.kicad_pro)
-#     - Sets 'kibot_variant' in pcb.yml to 'PRELIMINARY'
+#     - Sets 'kibot_variant' in pcb.yaml to 'PRELIMINARY'
 #   The resulting changes are committed and pushed back to the branch.
 #
 # Variables:
@@ -68,7 +68,7 @@ jobs:
 
           git add ${{ env.kibot_input_dir }}/kibot_yaml/kibot_pre_set_text_variables.yaml
           git add ${{ env.kibot_input_dir }}/${{ env.kicad_board }}.kicad_pro
-          git add .github/workflows/pcb.yml
+          git add .github/workflows/pcb.yaml
           git commit -m "Auto add release vars for ${GITHUB_REF_NAME}" || echo "No changes"
           git remote set-url origin https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}
           git push

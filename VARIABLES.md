@@ -21,7 +21,8 @@ Replaced via `sed` in all text files (`.md`, `.yaml`, `.adoc`, shell scripts, et
 | `${GIT_REPO}` | GitHub repository name, parsed from `${GIT_URL}` | `repo` |
 | `${MASTER_BRANCH}` | Default Git branch name | `main` |
 | `${PROJECT_NAME_ANCHOR}` | Lowercase, hyphenated project name for Markdown anchors | `my-sensor-board` |
-| `${BOARD_NAME_ANCHOR}` | Lowercase, hyphenated board name — also used as hardware directory name | `mysensorboard` |
+| `${BOARD_NAME_ANCHOR}` | Lowercase, hyphenated board name for Markdown anchors | `mysensorboard` |
+| `${BOARD_NAME_LOWER}` | Lowercase board name — used as hardware directory name | `mysensorboard` |
 
 ## KiCad Text Variables
 

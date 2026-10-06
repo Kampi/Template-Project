@@ -24,7 +24,7 @@
 #   kibot_output_path   - Root output path for KiBot results
 #   kibot_input_dir     - Directory containing the KiCad project and KiBot files
 #   kibot_variant       - Active KiBot variant (DRAFT / PRELIMINARY / CHECKED / RELEASED).
-#                         Set to PRELIMINARY by init_release.yaml when a *_Dev branch
+#                         Set to PRELIMINARY by init-kibot-release.yaml when a *_Dev branch
 #                         is created. Automatically overridden to RELEASED on tag pushes.
 #   master_branch       - Name of the main branch (main or master)
 #

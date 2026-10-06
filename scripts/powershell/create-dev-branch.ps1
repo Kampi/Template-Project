@@ -8,7 +8,6 @@
     - Validating the branch name format (e.g., 1.0.1_Dev)
     - Pulling the latest master branch
     - Creating the new development branch
-    - Deleting the production folder
     - Updating the kibot_variant from CHECKED to PRELIMINARY in .github/workflows/pcb.yaml
     - Committing all changes with a standardized message
 
@@ -137,16 +136,6 @@ if ($LASTEXITCODE -ne 0) {
 Write-Success "✓ Branch $BranchName created"
 Write-Info ""
 
-# Delete production folder
-Write-Info "Deleting production folder..."
-if (Test-Path "production") {
-    Remove-Item -Path "production" -Recurse -Force
-    Write-Success "✓ Production folder deleted"
-} else {
-    Write-Warning "⚠ Production folder not found (already deleted?)"
-}
-Write-Info ""
-
 # Update pcb.yaml
 Write-Info "Updating .github/workflows/pcb.yaml..."
 $pcbYmlPath = ".github\workflows\pcb.yaml"
@@ -183,7 +172,7 @@ Initialize development branch for version $major.$minor.$rev
 $signedOffBy
 "@
 
-git commit -m $commitMessage
+git commit --allow-empty -m $commitMessage
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "ERROR: Failed to commit changes!"

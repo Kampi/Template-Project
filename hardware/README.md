@@ -1,8 +1,8 @@
 <p align="center" width="100%">
-  <img alt="Logo" width="33%" src="Images/Logos/Logo.png">
+  <img alt="Logo" width="33%" src="Logos/Logo.png">
 </p>
 
-<h1 align="center">Template</h1>
+<h1 align="center">${BOARD_NAME}</h1>
 
 <p align="center" width="100%">
   <a href="${GIT_URL}/actions/workflows/pcb.yaml">
@@ -13,9 +13,9 @@
 ***
 
 <p align="center">
-  <img alt="3D Top Angled" src="Images/Template-angled_top.png" width="45%">
+  <img alt="3D Top Angled" src="Images/${BOARD_NAME}-angled_top.png" width="45%">
 &nbsp; &nbsp; &nbsp; &nbsp;
-  <img alt="3D Bottom Angled" src="Images/Template-angled_bottom.png" width="45%">
+  <img alt="3D Bottom Angled" src="Images/${BOARD_NAME}-angled_bottom.png" width="45%">
 </p>
 
 ***

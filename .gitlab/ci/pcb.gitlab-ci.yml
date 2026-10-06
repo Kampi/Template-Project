@@ -50,7 +50,7 @@ variables:
 # ---------------------------------------------------------------------------
 pcb:generate_outputs:
   stage: build
-  image: ghcr.io/inti-cmnb/kicad9_auto_full:latest
+  image: ghcr.io/inti-cmnb/kicad10_auto_full:latest
 
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -78,6 +78,11 @@ pcb:generate_outputs:
     - git remote set-url origin "https://oauth2:${WORKFLOW_PAT}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
     - git clone https://github.com/Kampi/KiCad.git kicad-library
     - export KICAD_LIBRARY="$(pwd)/kicad-library"
+    # KiCost from master contains the fix for the Mouser API rate limit (hildogjr/KiCost#587)
+    - dpkg --remove kicost
+    - apt-get update
+    - apt-get -y install --no-install-recommends python3-pip
+    - pip3 install --break-system-packages https://github.com/hildogjr/KiCost/archive/refs/heads/master.zip
     - sed -i 's/\.wrl/.step/g' ${KIBOT_INPUT_DIR}/${KICAD_BOARD}.kicad_pcb
 
   script:
@@ -186,24 +191,17 @@ pcb:generate_outputs:
       cd ..
 
     # -------------------------------------------------------------------------
-    # KiCost: Cost estimation (up to 10 attempts due to Mouser API rate limit)
+    # KiCost: Cost estimation
     # -------------------------------------------------------------------------
     - |
       cd ${KIBOT_INPUT_DIR}
       revision=$(python3 kibot_resources/scripts/get_changelog_version.py -f CHANGELOG.md 2>/dev/null || echo "")
-      for attempt in $(seq 1 10); do
-        echo "--- KiCost attempt ${attempt}/10 ---"
-        kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup \
-          -c kibot_yaml/kibot_main.yaml \
-          -d ${KIBOT_OUTPUT_PATH}/${KIBOT_OUTPUT_DIR}-${KIBOT_VARIANT} \
-          -g variant=${KIBOT_VARIANT} \
-          -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml \
-          xlsx_bom 2>> ../log/kicost_output.log || true
-        if [ ${attempt} -lt 3 ]; then
-          echo "Waiting 61s for Mouser API rate limit to reset..."
-          sleep 61
-        fi
-      done
+      kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup \
+        -c kibot_yaml/kibot_main.yaml \
+        -d ${KIBOT_OUTPUT_PATH}/${KIBOT_OUTPUT_DIR}-${KIBOT_VARIANT} \
+        -g variant=${KIBOT_VARIANT} \
+        -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml \
+        xlsx_bom 2> ../log/kicost_output.log || true
       cd ..
 
     # -------------------------------------------------------------------------
@@ -249,7 +247,7 @@ pcb:generate_outputs:
 # ---------------------------------------------------------------------------
 pcb:release:
   stage: deploy
-  image: ghcr.io/inti-cmnb/kicad9_auto_full:latest
+  image: ghcr.io/inti-cmnb/kicad10_auto_full:latest
   needs:
     - job: pcb:generate_outputs
       artifacts: true

@@ -4,9 +4,12 @@
 #
 # Trigger:
 #   - workflow_dispatch: Manual trigger via GitHub UI
-#   - push to branches 'main', 'master', 'dev' or a development branch
-#     'x.y.z_Dev' / 'x.y_Dev' (excluding *.md changes)
+#   - push to branch 'dev' or a development branch 'x.y.z_Dev' / 'x.y_Dev'
+#     (only when the hardware directory or this file change)
 #   - push of a tag matching semantic versioning (e.g. 1.0.0)
+#   A push to the main branch does not start the workflow. The main branch only
+#   receives releases, which are built by the tag. This also keeps GitHub Pages
+#   at the state of the latest release.
 #
 # Function:
 #   Generates KiCad PCB project outputs using KiBot (schematics, Gerbers, BoM,
@@ -28,7 +31,7 @@
 #   kibot_output_path   - Root output path for KiBot results
 #   kibot_input_dir     - Directory containing the KiCad project and KiBot files
 #   kibot_variant       - Active KiBot variant (DRAFT / PRELIMINARY / CHECKED / RELEASED).
-#                         Set to PRELIMINARY by the create-dev-branch script and to CHECKED
+#                         Set to PRELIMINARY by the create-dev-branch skill and to CHECKED
 #                         by the create-release skill. Automatically overridden to RELEASED
 #                         on tag pushes.
 #   master_branch       - Name of the main branch (main or master)
@@ -38,21 +41,22 @@
 #   GITHUB_TOKEN        - Automatically provided by GitHub Actions (read/write contents)
 # =============================================================================
 
-name: PCB Data
+name: Hardware / PCB Data
 
 on:
   workflow_dispatch:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+' # Match semantic versioning tags
+    # No main branch: a release is built by its tag, not by the merge
     branches:
-      - main
-      - master
       - dev
       - '[0-9]*.[0-9]*.[0-9]*_Dev'
       - '[0-9]*.[0-9]*_Dev'
-    paths-ignore:
-      - '*.md'
+    # Not evaluated for tag pushes, a version tag always starts the release
+    paths:
+      - '${BOARD_NAME_LOWER}/**'
+      - '.github/workflows/hw-pcb.yaml'
 
 env:
   # Name of the KiCad PCB file
@@ -209,7 +213,7 @@ jobs:
           # Get the previous tag (all SemVer tags, excluding the current one)
           prev_tag=$(git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${current_tag}$" | head -1 || true)
 
-          python3 ./scripts/python/update_changelog_links.py \
+          python3 ./scripts/python/update-changelog-links.py \
             --file "${changelog_file}" \
             --tag "${current_tag}" \
             --prev-tag "${prev_tag}" \
@@ -311,11 +315,47 @@ jobs:
               echo -e "${YELLOW}Warning: Unable to determine version from CHANGELOG.md. Defaulting to empty revision.${NC}"
               revision=""
           fi
-          kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup -c kibot_yaml/kibot_main.yaml \
-            -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} \
-            -g variant=${{ env.kibot_variant }} \
-            -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml xlsx_bom \
-            2> ../log/kicost_output.log || true
+          # KiCost waits for the Mouser API rate limit itself (30 calls/minute, 1 call/part).
+          # The run is only repeated if parts are still missing afterwards. Each run caches
+          # its results, the next run only queries the remaining parts. The loop ends as soon
+          # as a run has no missing parts or finds nothing new. Without an API key there is
+          # nothing to retry.
+          max_attempts=5
+          if [[ -z "${MOUSER_KEY}${DIGIKEY_KEY}${TME_KEY}${RS_KEY}${FARNELL_KEY}" ]]; then
+            echo "No distributor API key set, running KiCost once"
+            max_attempts=1
+          fi
+
+          attempt_log=$(mktemp)
+          previous_missing=-1
+          for ((attempt=1; attempt<=max_attempts; attempt++)); do
+            echo "--- KiCost attempt ${attempt}/${max_attempts} ---"
+            kibot -vvvv --skip-pre erc,drc,draw_fancy_stackup -c kibot_yaml/kibot_main.yaml \
+              -d ${{ env.kibot_output_path }}/${{ env.kibot_output_dir }}-${{ env.kibot_variant }} \
+              -g variant=${{ env.kibot_variant }} \
+              -E KICOST_CONFIG=kibot_yaml/kicost_config_local.yaml xlsx_bom \
+              2> "${attempt_log}" || true
+            cat "${attempt_log}" >> ../log/kicost_output.log
+
+            missing=$(grep -c "No information found at" "${attempt_log}" || true)
+            echo "Parts without distributor information: ${missing}"
+
+            if [[ ${missing} -eq 0 ]]; then
+              echo "All parts found"
+              break
+            fi
+            if [[ ${missing} -eq ${previous_missing} ]]; then
+              echo "No new parts found, the remaining parts are not available"
+              break
+            fi
+            previous_missing=${missing}
+
+            if [[ ${attempt} -lt ${max_attempts} ]]; then
+              echo "Waiting 61s for Mouser API rate limit to reset..."
+              sleep 61
+            fi
+          done
+          rm -f "${attempt_log}"
 
       - name: Upload artifacts (logs)
         uses: actions/upload-artifact@v4
@@ -379,7 +419,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
-    if: github.ref_type == 'tag' || github.ref_name == 'main' || github.ref_name == 'master'
+    # Pages always shows the latest release
+    if: github.ref_type == 'tag'
     steps:
       - name: Determine variant
         shell: bash

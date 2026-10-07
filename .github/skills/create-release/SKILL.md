@@ -5,7 +5,7 @@ description: Create a hardware release x.y.z of this KiCad project. Runs ERC/DRC
 
 # Create Release
 
-Releases are built by the `PCB Data` workflow ([pcb.yaml](../../workflows/pcb.yaml)).
+Releases are built by the `Hardware / PCB Data` workflow ([hw-pcb.yaml](../../workflows/hw-pcb.yaml)).
 A push to the development branch builds the outputs with the variant from `kibot_variant`,
 a push of a SemVer tag (`x.y.z`) builds the `RELEASED` variant, updates the `CHANGELOG.md`
 and creates the GitHub release.
@@ -34,7 +34,7 @@ Files changed by this skill:
 | ---------------------------------------------------------------- | ---- |
 | `${BOARD_NAME_LOWER}/kibot_yaml/kibot_pre_set_text_variables.yaml` | 2    |
 | `${BOARD_NAME_LOWER}/Revision History.kicad_sch`                   | 2    |
-| `.github/workflows/pcb.yaml`                                     | 3    |
+| `.github/workflows/hw-pcb.yaml`                                     | 3    |
 
 Shell state is not kept between commands, so set the parameters again in every command that uses them:
 
@@ -55,16 +55,42 @@ TEXT_VARS="$INPUT_DIR/kibot_yaml/kibot_pre_set_text_variables.yaml"
 
 `VERSION` is used for the changelog variables (step 2), the commit message (step 4) and the tag (step 7).
 
-## Checks before starting
+## GitHub user
 
-The pipeline uses the names from the `env` section of `pcb.yaml`, so they must match the parameters above:
+All pushes are done with the user that is logged in to the GitHub CLI, not with other credentials
+stored for Git. `git_push` uses the token of the GitHub CLI for the push:
 
 ```bash
-grep -E '^  (kibot_input_dir|kicad_board|master_branch):' .github/workflows/pcb.yaml
+GH_USER=$(gh api user --jq .login)
+git_push() {
+    git -c credential.helper= -c credential.helper='!gh auth git-credential' push "$@"
+}
+```
+
+Define both again in every command that pushes, and always push with `git_push` instead of `git push`.
+
+Check before starting:
+
+```bash
+gh auth status
+echo "GitHub user: $GH_USER"
+git remote get-url origin
+```
+
+Abort if the GitHub CLI is not logged in. The token is only used for `https://` remotes. If `origin` is
+an SSH remote (`git@github.com:...`), the SSH key decides which user pushes: tell the user and ask
+before continuing. Show `GH_USER` in the summary before the first push.
+
+## Checks before starting
+
+The pipeline uses the names from the `env` section of `hw-pcb.yaml`, so they must match the parameters above:
+
+```bash
+grep -E '^  (kibot_input_dir|kicad_board|master_branch):' .github/workflows/hw-pcb.yaml
 ls "$INPUT_DIR/$BOARD.kicad_pro" "$INPUT_DIR/$BOARD.kicad_sch" "$INPUT_DIR/$BOARD.kicad_pcb" "$TEXT_VARS"
 ```
 
-If a name differs from `pcb.yaml`, a file is missing or a name still looks like `${...}`
+If a name differs from `hw-pcb.yaml`, a file is missing or a name still looks like `${...}`
 (the directory or the board was renamed, or the project was not initialized completely), do not guess.
 Determine the real names (`git ls-files '*.kicad_pro'` gives `INPUT_DIR/BOARD.kicad_pro`,
 `git branch -r` the main branch), show the user the difference and ask before continuing.
@@ -72,7 +98,7 @@ Determine the real names (`git ls-files '*.kicad_pro'` gives `INPUT_DIR/BOARD.ki
 Abort if the tag already exists (`git ls-remote --tags origin "refs/tags/$VERSION"` returns a result)
 or if `INPUT_DIR/CHANGELOG.md` has no entries in the `## [Unreleased]` section.
 
-Show the user a short summary (version, development branch, main branch) and get a confirmation
+Show the user a short summary (version, development branch, main branch, GitHub user) and get a confirmation
 before anything is pushed.
 
 ## Steps
@@ -217,7 +243,7 @@ Only change these values, keep the rest of the files untouched.
 
 ### 3. Set the variant to CHECKED
 
-In `.github/workflows/pcb.yaml` set `  kibot_variant: <OLD>` to `  kibot_variant: CHECKED`.
+In `.github/workflows/hw-pcb.yaml` set `  kibot_variant: <OLD>` to `  kibot_variant: CHECKED`.
 Only change this value, keep the rest of the file untouched.
 
 ### 4. Commit and push to the development branch
@@ -225,12 +251,13 @@ Only change this value, keep the rest of the file untouched.
 The commit message uses the version determined from the branch name, e.g. `Prepare Release 2.3.0` on `2.3.0_Dev`.
 
 ```bash
-git pull --rebase origin "$DEV_BRANCH"
 # Working tree was clean before, so this only stages the changes of steps 2 and 3
 git add -u
 git diff --cached --stat
 git commit -m "Prepare Release $VERSION"
-git push origin "$DEV_BRANCH"
+# After the commit, 'git pull --rebase' refuses to run with uncommitted changes
+git pull --rebase origin "$DEV_BRANCH"
+git_push origin "$DEV_BRANCH"
 ```
 
 ### 5. Wait for the KiBot pipeline
@@ -238,7 +265,7 @@ git push origin "$DEV_BRANCH"
 ```bash
 SHA=$(git rev-parse HEAD)
 # The run may need a few seconds to show up, retry until it exists
-RUN_ID=$(gh run list --workflow pcb.yaml --branch "$DEV_BRANCH" --commit "$SHA" \
+RUN_ID=$(gh run list --workflow hw-pcb.yaml --branch "$DEV_BRANCH" --commit "$SHA" \
     --json databaseId --jq '.[0].databaseId')
 gh run watch "$RUN_ID" --exit-status
 ```
@@ -273,20 +300,34 @@ git tag "$VERSION"
 ### 8. Push the main branch and the tag
 
 ```bash
-git push --atomic origin "$MAIN_BRANCH" "$VERSION"
+git_push --atomic origin "$MAIN_BRANCH" "$VERSION"
 ```
 
 ### 9. Wait for the release pipeline
 
+The push of the tag starts the run that builds the release. The push of the main branch starts no run,
+`hw-pcb.yaml` is not triggered by the main branch. Only the tag run decides whether the release was
+successful.
+
 ```bash
 SHA=$(git rev-parse HEAD)
-# Wait for all PCB runs of this commit (branch push and tag push)
-gh run list --workflow pcb.yaml --commit "$SHA" --json databaseId,headBranch,status
-gh run watch <RUN_ID> --exit-status   # for each listed run, the tag run is mandatory
+# The runs may need a few seconds to show up, retry until the tag run exists
+gh run list --workflow hw-pcb.yaml --commit "$SHA" --json databaseId,headBranch,status
+# Run of the tag: headBranch is the version
+TAG_RUN_ID=$(gh run list --workflow hw-pcb.yaml --commit "$SHA" --json databaseId,headBranch \
+    --jq ".[] | select(.headBranch == \"$VERSION\") | .databaseId")
+gh run watch "$TAG_RUN_ID" --exit-status
 ```
 
-On success report the release URL (`gh release view "$VERSION" --json url --jq .url`).
-On failure show the failed log and abort. Never delete or move the tag without asking the user.
+If the tag run fails, show the failed log (`gh run view "$TAG_RUN_ID" --log-failed | tail -n 100`) and abort.
+Never delete or move the tag without asking the user.
+
+If the tag run succeeds, the release is done. If the list shows other runs of this commit (projects with
+an older workflow also build the main branch), wait for them as well (`gh run watch <RUN_ID> --exit-status`).
+A failure of such a run does not fail the release: report it as a warning with the failed step
+(`gh run view <RUN_ID> --log-failed | tail -n 30`) and continue.
+
+Report the release URL (`gh release view "$VERSION" --json url --jq .url`).
 
 ### 10. Pull the release state
 
@@ -299,4 +340,4 @@ git pull --ff-only origin "$MAIN_BRANCH"
 git log --oneline -n 5
 ```
 
-`MAIN_BRANCH` is the branch from `master_branch` in `pcb.yaml` (`main` or `master`).
+`MAIN_BRANCH` is the branch from `master_branch` in `hw-pcb.yaml` (`main` or `master`).

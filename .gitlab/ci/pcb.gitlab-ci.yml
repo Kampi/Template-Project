@@ -142,7 +142,7 @@ pcb:generate_outputs:
 
         prev_tag=$(git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | grep -v "^${CI_COMMIT_TAG}$" | head -1)
         repo_url="${CI_PROJECT_URL}"
-        python3 ./scripts/python/update_changelog_links.py \
+        python3 ./scripts/python/update-changelog-links.py \
           --file "${KIBOT_INPUT_DIR}/CHANGELOG.md" \
           --tag "${CI_COMMIT_TAG}" \
           --prev-tag "${prev_tag}" \

@@ -1,7 +1,8 @@
 # ${PROJECT_NAME}
 
 [![License](https://img.shields.io/badge/License-${LICENSE_BADGE}.svg)](${LICENSE_LINK})
-[![PCB](${GIT_URL}/actions/workflows/pcb.yaml/badge.svg)](${GIT_URL}/actions/workflows/pcb.yaml)
+[![PCB](${GIT_URL}/actions/workflows/hw-pcb.yaml/badge.svg)](${GIT_URL}/actions/workflows/hw-pcb.yaml)
+[![Firmware](${GIT_URL}/actions/workflows/fw-platformio.yaml/badge.svg)](${GIT_URL}/actions/workflows/fw-platformio.yaml)
 [![Documentation](https://img.shields.io/badge/Documentation-HTML-007ec6?longCache=true&style=flat&logo=asciidoctor&colorA=555555)](https://${GIT_USER}.github.io/${GIT_REPO}/)
 
 ## Table of Contents

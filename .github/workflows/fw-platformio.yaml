@@ -1,0 +1,199 @@
+# =============================================================================
+# Workflow: PlatformIO Firmware
+# =============================================================================
+#
+# Trigger:
+#   - workflow_dispatch: Manual trigger via GitHub UI
+#   - pull_request (only when the firmware directory or this file change)
+#   - push to branches 'main', 'master', 'dev' or a development branch
+#     'x.y.z_Dev' / 'x.y_Dev' (only when the firmware directory or this file change)
+#
+# Function:
+#   Builds, tests and checks the PlatformIO firmware:
+#     - environments: Reads the environments from platformio.ini. All environments
+#       except the ones with the 'native' platform are target builds.
+#     - build: Builds every target environment (matrix) and uploads the firmware
+#       images as workflow artifact.
+#     - test: Runs the unit tests on the host (environment 'native').
+#     - check: Runs the static code analysis (pio check) for every target environment.
+#
+# Variables:
+#   firmware_dir        - Directory with the PlatformIO project (platformio.ini)
+#   test_environment    - Environment for the unit tests on the host
+#
+# Secrets:
+#   (none)
+# =============================================================================
+
+name: Firmware / PlatformIO
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/fw-platformio.yaml'
+  push:
+    branches:
+      - main
+      - master
+      - dev
+      - '[0-9]*.[0-9]*.[0-9]*_Dev'
+      - '[0-9]*.[0-9]*_Dev'
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/fw-platformio.yaml'
+
+env:
+  # Directory with the PlatformIO project
+  firmware_dir: firmware
+
+  # Environment for the unit tests on the host
+  test_environment: native
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  environments:
+    name: Read environments
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.environments.outputs.targets }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Read environments from platformio.ini
+        id: environments
+        working-directory: ${{ env.firmware_dir }}
+        shell: bash
+        run: |
+          pio project config --json-output > "${RUNNER_TEMP}/config.json"
+
+          targets=$(python3 - "${RUNNER_TEMP}/config.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as f:
+              config = json.load(f)
+
+          targets = []
+          for section, options in config:
+              if section.startswith("env:") and dict(options).get("platform") != "native":
+                  targets.append(section[len("env:"):])
+          print(json.dumps(targets))
+          PY
+          )
+
+          if [[ "${targets}" == "[]" ]]; then
+            echo "::error::No target environment found in platformio.ini"
+            exit 1
+          fi
+
+          echo "Target environments: ${targets}"
+          echo "targets=${targets}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build (${{ matrix.environment }})
+    needs: environments
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.environments.outputs.targets) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ matrix.environment }}-${{ hashFiles(format('{0}/platformio.ini', env.firmware_dir)) }}
+          restore-keys: |
+            platformio-${{ matrix.environment }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build firmware
+        working-directory: ${{ env.firmware_dir }}
+        run: pio run -e "${{ matrix.environment }}"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.environment }}
+          path: |
+            ${{ env.firmware_dir }}/.pio/build/${{ matrix.environment }}/*.bin
+            ${{ env.firmware_dir }}/.pio/build/${{ matrix.environment }}/*.elf
+          if-no-files-found: error
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Run unit tests on the host
+        working-directory: ${{ env.firmware_dir }}
+        run: pio test -e "${{ env.test_environment }}"
+
+  check:
+    name: Static analysis (${{ matrix.environment }})
+    needs: environments
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.environments.outputs.targets) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ matrix.environment }}-${{ hashFiles(format('{0}/platformio.ini', env.firmware_dir)) }}
+          restore-keys: |
+            platformio-${{ matrix.environment }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Run static code analysis
+        working-directory: ${{ env.firmware_dir }}
+        run: pio check -e "${{ matrix.environment }}" --fail-on-defect=medium --fail-on-defect=high

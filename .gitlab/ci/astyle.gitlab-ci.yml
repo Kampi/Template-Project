@@ -9,7 +9,7 @@
 #
 # Function:
 #   Checks the code style of the repository using AStyle. AStyle is built from
-#   source and the repository's 'scripts/bash/format.sh' script is executed in
+#   source and the repository's 'scripts/bash/check-format.sh' script is executed in
 #   dry-run mode to report style violations without modifying any files.
 #
 # Variables:
@@ -36,5 +36,5 @@ astyle:check:
     - cd astyle-3.6.13 && mkdir -p build && cd build && cmake ../ && make && make install && cd ../..
 
   script:
-    - chmod +x ./scripts/bash/format.sh
-    - ./scripts/bash/format.sh
+    - chmod +x ./scripts/bash/check-format.sh
+    - ./scripts/bash/check-format.sh

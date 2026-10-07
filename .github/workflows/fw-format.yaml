@@ -6,30 +6,50 @@
 #   - workflow_dispatch: Manual trigger via GitHub UI
 #   - pull_request: On open, synchronize, or reopen targeting any branch
 #   - push to branches 'main', 'master', or 'dev'
+#   Pull requests and pushes only when C/C++ sources, the scripts or this file change
 #
 # Function:
 #   Checks the code style of the repository using AStyle. AStyle is built from
-#   source and the repository's 'scripts/bash/format.sh' script is executed in
+#   source and the repository's 'scripts/bash/check-format.sh' script is executed in
 #   dry-run mode to report style violations without modifying any files.
 #
 # Variables:
-#   (none)
+#   source_dirs         - Directories with the C/C++ sources, separated by spaces
+#                         (set by the init script for the selected project type)
 #
 # Secrets:
 #   (none)
 # =============================================================================
 
-name: Code Style Check
+name: Firmware / Code Style Check
 
 on:
   workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - '**.c'
+      - '**.h'
+      - '**.cpp'
+      - '**.hpp'
+      - 'scripts/**'
+      - '.github/workflows/fw-format.yaml'
   push:
     branches:
       - main
       - master
       - dev
+    paths:
+      - '**.c'
+      - '**.h'
+      - '**.cpp'
+      - '**.hpp'
+      - 'scripts/**'
+      - '.github/workflows/fw-format.yaml'
+
+env:
+  # Directories with the C/C++ sources
+  source_dirs: firmware
 
 permissions:
   contents: read
@@ -57,5 +77,5 @@ jobs:
 
       - name: Check code style
         run: |
-          chmod +x ./scripts/bash/format.sh
-          ./scripts/bash/format.sh
+          chmod +x ./scripts/bash/check-format.sh
+          ./scripts/bash/check-format.sh ${{ env.source_dirs }}

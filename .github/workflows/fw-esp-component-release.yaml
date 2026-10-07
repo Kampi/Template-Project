@@ -23,7 +23,7 @@
 #                         Used to create the GitHub Release.
 # =============================================================================
 
-name: Component Release
+name: Firmware / ESP-IDF Component Release
 
 on:
   push:

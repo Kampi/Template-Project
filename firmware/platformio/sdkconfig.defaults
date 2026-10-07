@@ -1,0 +1,2 @@
+# Default configuration of the project. Options that differ from the ESP-IDF
+# defaults belong here, the generated sdkconfig.* files are not committed.

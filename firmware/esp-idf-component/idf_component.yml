@@ -1,0 +1,22 @@
+# Manifest of the component for the ESP Component Registry
+# https://docs.espressif.com/projects/idf-component-manager/en/latest/reference/manifest_file.html
+
+# Updated by the release pipeline
+version: "0.1.0"
+description: ${PROJECT_NAME}
+url: ${GIT_URL}
+repository: ${GIT_URL}.git
+issues: ${GIT_URL}/issues
+maintainers:
+  - ${DESIGNER} <${EMAIL}>
+
+dependencies:
+  idf: ">=6.1"
+
+# Files that are not part of the uploaded component
+files:
+  exclude:
+    - ".github/**/*"
+    - ".gitlab/**/*"
+    - ".gitlab-ci.yml"
+    - "scripts/**/*"

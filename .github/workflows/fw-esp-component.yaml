@@ -1,0 +1,116 @@
+# =============================================================================
+# Workflow: ESP-IDF Component
+# =============================================================================
+#
+# Trigger:
+#   - workflow_dispatch: Manual trigger via GitHub UI
+#   - pull_request (excluding *.md changes)
+#   - push to branches 'main', 'master', 'dev' or a development branch
+#     'x.y.z_Dev' / 'x.y_Dev' (excluding *.md changes)
+#
+# Function:
+#   Builds and validates the ESP-IDF component in the repository root:
+#     - build: Builds every example in 'examples/' for each combination of
+#       ESP-IDF version and target (matrix) in the ESP-IDF Docker image.
+#     - validate: Packs the component with the IDF Component Manager. This
+#       checks the manifest 'idf_component.yml' without uploading anything.
+#       The archive is uploaded as workflow artifact.
+#
+#   The release and the upload to the ESP Component Registry are done by
+#   'fw-esp-component-release.yaml'.
+#
+# Variables:
+#   examples_dir        - Directory with the example projects
+#   matrix.idf_version  - ESP-IDF versions (tags of the Docker image 'espressif/idf')
+#   matrix.target       - ESP-IDF targets (esp32, esp32s3, esp32c3, ...)
+#
+# Secrets:
+#   (none)
+# =============================================================================
+
+name: Firmware / ESP-IDF Component
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  push:
+    branches:
+      - main
+      - master
+      - dev
+      - '[0-9]*.[0-9]*.[0-9]*_Dev'
+      - '[0-9]*.[0-9]*_Dev'
+    paths-ignore:
+      - '**.md'
+
+env:
+  # Directory with the example projects
+  examples_dir: examples
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.idf_version }}, ${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add older versions to keep the component compatible with them
+        idf_version:
+          - v6.1
+        target:
+          - esp32
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # The command runs in single quotes inside the container, so it must not contain any
+      - name: Build examples
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf_version }}
+          target: ${{ matrix.target }}
+          command: >-
+            found=0;
+            for example in ${{ env.examples_dir }}/*/; do
+            if [ -f "${example}CMakeLists.txt" ]; then
+            found=1;
+            echo "::group::Build ${example}";
+            idf.py -C "${example}" build || exit 1;
+            echo "::endgroup::";
+            fi;
+            done;
+            if [ "${found}" = "0" ]; then echo "::error::No example found in ${{ env.examples_dir }}"; exit 1; fi
+
+  validate:
+    name: Validate component
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install IDF Component Manager
+        run: pip install --upgrade idf-component-manager
+
+      - name: Pack component
+        run: compote component pack --name "${{ github.event.repository.name }}" --dest-dir dist
+
+      - name: Upload component archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: component
+          path: dist/
+          if-no-files-found: error

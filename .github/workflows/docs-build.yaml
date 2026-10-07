@@ -24,7 +24,7 @@
 #                         Required for GitHub Pages deployment.
 # =============================================================================
 
-name: Software Documentation
+name: Documentation / Build
 
 on:
   push:
@@ -33,11 +33,11 @@ on:
       - master
     paths:
       - 'firmware/docs/**'
-      - '.github/workflows/documentation.yaml'
+      - '.github/workflows/docs-build.yaml'
   pull_request:
     paths:
       - 'firmware/docs/**'
-      - '.github/workflows/documentation.yaml'
+      - '.github/workflows/docs-build.yaml'
   workflow_dispatch:
 
 env:

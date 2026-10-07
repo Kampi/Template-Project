@@ -3,4 +3,4 @@
 
 
 
-#endif MAIN_H_ /* MAIN_H_ */
+#endif /* MAIN_H_ */

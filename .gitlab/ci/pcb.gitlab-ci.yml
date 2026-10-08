@@ -15,6 +15,11 @@
 #       of the schematic is pushed back to the branch, because the next run reads
 #       the sheet titles from it. On tag pushes the CHANGELOG is updated and
 #       committed to the main branch.
+#     - check_bom: Compares the generated BoM (CSV / XLSX) with the schematic.
+#       A mismatch (e.g. a fitted component that is missing in the BoM) fails
+#       this job with a warning, but does not stop the pipeline or the release.
+#       generate_outputs stores the result as checklist '<board>-bom_check.md'
+#       next to the BoM.
 #     - release: Creates a GitLab Release with the generated ZIP artifact.
 #       Only runs on tag pushes.
 #     - pages: Publishes the generated outputs as GitLab Pages.
@@ -208,6 +213,29 @@ pcb:generate_outputs:
       cd ..
 
     # -------------------------------------------------------------------------
+    # BoM checklist: Stored next to the BoM, so it is part of the artifacts and
+    # the release. The result of the check is reported by 'pcb:check_bom'.
+    # -------------------------------------------------------------------------
+    - |
+      output_dir="${KIBOT_INPUT_DIR}/${KIBOT_OUTPUT_PATH}/${KIBOT_OUTPUT_DIR}-${KIBOT_VARIANT}"
+
+      set --
+      for file in $(find "${output_dir}" -type f \( -name "${KICAD_BOARD}-bom*.csv" -o -name "${KICAD_BOARD}-bom*.xlsx" \) | sort); do
+        set -- "$@" -b "${file}"
+      done
+
+      if [ $# -eq 0 ]; then
+        echo "WARNING: No BoM found in ${output_dir}, no BoM checklist created"
+      else
+        python3 ./scripts/python/check-bom.py \
+          --schematic "${KIBOT_INPUT_DIR}/${KICAD_BOARD}.kicad_sch" \
+          --variant "${KIBOT_VARIANT}" \
+          --checklist "$(dirname "$2")/${KICAD_BOARD}-bom_check.md" \
+          --quiet --no-fail \
+          "$@" || echo "WARNING: BoM checklist not created"
+      fi
+
+    # -------------------------------------------------------------------------
     # Clean up
     # -------------------------------------------------------------------------
     - |
@@ -246,6 +274,53 @@ pcb:generate_outputs:
     paths:
       - ${KIBOT_OUTPUT_DIR}-*/
       - log/
+    expire_in: 7 days
+    when: always
+
+# ---------------------------------------------------------------------------
+# check_bom – Compare the generated BoM with the schematic
+#
+# A failed check marks the job as failed with a warning (allow_failure), the
+# pipeline and the release continue. The report is stored as job artifact.
+# ---------------------------------------------------------------------------
+pcb:check_bom:
+  stage: build
+  image: python:3-slim
+  needs:
+    - job: pcb:generate_outputs
+      artifacts: true
+  allow_failure: true
+
+  rules:
+    - !reference ["pcb:generate_outputs", rules]
+
+  script:
+    - |
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        KIBOT_VARIANT="RELEASED"
+      fi
+      output_dir="${KIBOT_INPUT_DIR}/${KIBOT_OUTPUT_PATH}/${KIBOT_OUTPUT_DIR}-${KIBOT_VARIANT}"
+
+      set --
+      for file in $(find "${output_dir}" -type f \( -name "${KICAD_BOARD}-bom*.csv" -o -name "${KICAD_BOARD}-bom*.xlsx" \) | sort); do
+        set -- "$@" -b "${file}"
+      done
+
+      if [ $# -eq 0 ]; then
+        echo "ERROR: No BoM found in ${output_dir}"
+        exit 1
+      fi
+
+      python3 ./scripts/python/check-bom.py \
+        --schematic "${KIBOT_INPUT_DIR}/${KICAD_BOARD}.kicad_sch" \
+        --variant "${KIBOT_VARIANT}" \
+        --report bom_check.md \
+        "$@"
+
+  artifacts:
+    name: "BoM-Check"
+    paths:
+      - bom_check.md
     expire_in: 7 days
     when: always
 

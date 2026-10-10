@@ -1,0 +1,54 @@
+# =============================================================================
+# Pipeline: Code Style Check (West / clang-format)
+# =============================================================================
+#
+# Trigger:
+#   - Manually via GitLab UI (web trigger)
+#   - Merge request: on open, synchronize, or reopen targeting any branch
+#   - Push to branches 'main', 'master', or 'dev'
+#   The job only exists in repositories with a West manifest ('west.yml').
+#
+# Function:
+#   Checks the code style of a Zephyr/West-based firmware with clang-format.
+#   The repository's 'scripts/bash/check-clang-format.sh' script is executed, it
+#   reports style violations without modifying any files. The style is stored
+#   in 'scripts/config/.clang-format': the rules of the Zephyr project with an
+#   indentation of 4 spaces instead of tabs.
+#   No West workspace is needed, only the sources of the application are checked.
+#
+# Variables:
+#   SOURCE_DIRS         - Directories with the C/C++ sources, separated by spaces
+#
+# Secrets:
+#   (none)
+# =============================================================================
+
+west-clang-format:check:
+  stage: test
+  image: ubuntu:latest
+
+  variables:
+    # Directories with the C/C++ sources
+    SOURCE_DIRS: "firmware"
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      exists:
+        - "west.yml"
+        - "**/west.yml"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      exists:
+        - "west.yml"
+        - "**/west.yml"
+    - if: '$CI_COMMIT_BRANCH =~ /^(main|master|dev)$/ && $CI_PIPELINE_SOURCE == "push"'
+      exists:
+        - "west.yml"
+        - "**/west.yml"
+
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq clang-format findutils
+
+  script:
+    - chmod +x ./scripts/bash/check-clang-format.sh
+    - ./scripts/bash/check-clang-format.sh ${SOURCE_DIRS}

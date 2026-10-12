@@ -152,6 +152,13 @@ import:
       NAME: @FILT_TP_EXCLUDE@
       COMMENT: Exclude only testpoints
 
+  - file: kibot_filt_exclude_enclosed.yaml
+    definitions:
+      NAME: @FILT_ENCLOSED_EXCLUDE@
+      COMMENT: Exclude enclosed components
+      ASSEMBLY_FIELD: @ASSEMBLY_FIELD@
+      ASSEMBLY_ENCLOSED: @ASSEMBLY_ENCLOSED@
+
   - file: kibot_filt_testpoints.yaml
     definitions:
       NAME: @FILT_TP_TOP_ONLY@
@@ -279,6 +286,7 @@ import:
       NAME: @CSV_POS_OUTPUT@
       COMMENT: Position file in CSV format
       DIR: @ASSEMBLY_DIR@
+      EXCLUDE_FILTER: @FILT_ENCLOSED_EXCLUDE@
 
   # Manufacturer-specific manufacturing outputs ================================
 
@@ -314,6 +322,7 @@ import:
       DIR: @ASSEMBLY_DIR@
       MPN_FIELD: @MPN_FIELD@
       MAN_FIELD: @MAN_FIELD@
+      ASSEMBLY_FIELD: @ASSEMBLY_FIELD@
 
   - file: kibot_out_html_bom.yaml
     definitions:
@@ -322,6 +331,7 @@ import:
       DIR: @ASSEMBLY_DIR@
       MPN_FIELD: @MPN_FIELD@
       MAN_FIELD: @MAN_FIELD@
+      ASSEMBLY_FIELD: @ASSEMBLY_FIELD@
 
   # XLSX Bill of Materials (BoM)
   - file: kibot_out_xlsx_bom.yaml
@@ -330,6 +340,7 @@ import:
       COMMENT: Bill of Materials in XLSX format
       DIR: @ASSEMBLY_DIR@
       FILT_PRE_TRANSFORM: @FILT_FIELD_RENAME@
+      ASSEMBLY_FIELD: @ASSEMBLY_FIELD@
 
   # Interactive HTML BOM. Needs netlist.
   - file: kibot_out_html_ibom.yaml
@@ -570,6 +581,12 @@ definitions:
   MPN_FIELD: 'manf#'
   MAN_FIELD: 'manf'
 
+  # Components with the value ASSEMBLY_ENCLOSED in the field ASSEMBLY_FIELD are
+  # not assembled, they are supplied loose with the board. They are listed in the
+  # BoM (column ASSEMBLY_FIELD), but not in the position file
+  ASSEMBLY_FIELD: 'assembly'
+  ASSEMBLY_ENCLOSED: 'Enclosed'
+
   # Drill table and drill map parameters =======================================
 
   GROUP_ROUND_SLOTS: true  # whether or not to group round holes and slots
@@ -642,6 +659,7 @@ definitions:
   FILT_FIELD_RENAME: field_rename
   FILT_TP_ONLY: only_testpoints
   FILT_TP_EXCLUDE: exclude_testpoints
+  FILT_ENCLOSED_EXCLUDE: exclude_enclosed
   FILT_TP_TOP_ONLY: only_testpoints_top
   FILT_TP_BOTTOM_ONLY: only_testpoints_bottom
 

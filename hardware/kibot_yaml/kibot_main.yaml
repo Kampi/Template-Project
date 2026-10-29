@@ -96,6 +96,7 @@ groups:
   - name: bom
     outputs:
       - @CSV_BOM_OUTPUT@
+      - @CSV_MOUSER_CART_OUTPUT@
     # - @XLSX_BOM_OUTPUT@
       - @HTML_IBOM_OUTPUT@
       - @HTML_BOM_OUTPUT@
@@ -332,6 +333,17 @@ import:
       MPN_FIELD: @MPN_FIELD@
       MAN_FIELD: @MAN_FIELD@
       ASSEMBLY_FIELD: @ASSEMBLY_FIELD@
+
+  # Mouser cart for the BoM import (CSV)
+  - file: kibot_out_csv_mouser_cart.yaml
+    definitions:
+      NAME: @CSV_MOUSER_CART_OUTPUT@
+      COMMENT: Mouser cart in CSV format
+      DIR: @ASSEMBLY_DIR@
+      FILTER: @FILT_MOUSER_ONLY@
+      MOUSER_FIELD: @MOUSER_FIELD@
+      MPN_FIELD: @MPN_FIELD@
+      MAN_FIELD: @MAN_FIELD@
 
   # XLSX Bill of Materials (BoM)
   - file: kibot_out_xlsx_bom.yaml
@@ -581,6 +593,9 @@ definitions:
   MPN_FIELD: 'manf#'
   MAN_FIELD: 'manf'
 
+  # Field with the Mouser part number for the Mouser cart
+  MOUSER_FIELD: 'mouser#'
+
   # Components with the value ASSEMBLY_ENCLOSED in the field ASSEMBLY_FIELD are
   # not assembled, they are supplied loose with the board. They are listed in the
   # BoM (column ASSEMBLY_FIELD), but not in the position file
@@ -659,6 +674,7 @@ definitions:
   FILT_FIELD_RENAME: field_rename
   FILT_TP_ONLY: only_testpoints
   FILT_TP_EXCLUDE: exclude_testpoints
+  FILT_MOUSER_ONLY: only_mouser
   FILT_ENCLOSED_EXCLUDE: exclude_enclosed
   FILT_TP_TOP_ONLY: only_testpoints_top
   FILT_TP_BOTTOM_ONLY: only_testpoints_bottom
@@ -682,6 +698,7 @@ definitions:
   CSV_TP_BOTTOM_OUTPUT: csv_testpoints_bottom
 
   CSV_BOM_OUTPUT: csv_bom
+  CSV_MOUSER_CART_OUTPUT: csv_mouser_cart
   XLSX_BOM_OUTPUT: xlsx_bom
   HTML_IBOM_OUTPUT: html_bom_interactive
   HTML_BOM_OUTPUT: html_bom

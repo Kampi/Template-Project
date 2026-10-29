@@ -1,6 +1,6 @@
 ---
 name: create-release
-description: Create a hardware release x.y.z of this KiCad project. Runs ERC/DRC, sets the changelog variables of the release in the KiBot configuration and the schematic, switches the KiBot variant to CHECKED, pushes "Prepare Release x.y.z" to the development branch, waits for the KiBot pipeline, merges into the main branch, creates and pushes the tag x.y.z, waits for the release pipeline and pulls the released state of the main branch. Use when the user asks to prepare, create or publish a release.
+description: Create a hardware release x.y.z of this KiCad project. Runs ERC/DRC, checks and fixes the page numbers of the schematic, checks the impedance table against the net classes of the layout, sets the changelog variables of the release in the KiBot configuration and the schematic, switches the KiBot variant to CHECKED, pushes "Prepare Release x.y.z" to the development branch, waits for the KiBot pipeline, merges into the main branch, creates and pushes the tag x.y.z, waits for the release pipeline, pulls the released state of the main branch and finishes with the main branch checked out. Use when the user asks to prepare, create or publish a release.
 ---
 
 # Create Release
@@ -32,9 +32,12 @@ Files changed by this skill:
 
 | File                                                             | Step |
 | ---------------------------------------------------------------- | ---- |
-| `${BOARD_NAME_LOWER}/kibot_yaml/kibot_pre_set_text_variables.yaml` | 2    |
-| `${BOARD_NAME_LOWER}/Revision History.kicad_sch`                   | 2    |
-| `.github/workflows/hw-pcb.yaml`                                     | 3    |
+| `${BOARD_NAME_LOWER}/*.kicad_sch` (page numbers and page links)    | 2    |
+| `${BOARD_NAME_LOWER}/kibot_resources/templates/impedance_table.txt` | 3   |
+| `${BOARD_NAME_LOWER}/${BOARD_NAME}.kicad_pro` (unused net classes, only with approval) | 3 |
+| `${BOARD_NAME_LOWER}/kibot_yaml/kibot_pre_set_text_variables.yaml` | 4    |
+| `${BOARD_NAME_LOWER}/Revision History.kicad_sch`                   | 4    |
+| `.github/workflows/hw-pcb.yaml`                                     | 5    |
 
 Shell state is not kept between commands, so set the parameters again in every command that uses them:
 
@@ -53,7 +56,7 @@ VERSION_RE=${VERSION//./\\.}
 TEXT_VARS="$INPUT_DIR/kibot_yaml/kibot_pre_set_text_variables.yaml"
 ```
 
-`VERSION` is used for the changelog variables (step 2), the commit message (step 4) and the tag (step 7).
+`VERSION` is used for the changelog variables (step 4), the commit message (step 6) and the tag (step 9).
 
 ## GitHub user
 
@@ -120,7 +123,76 @@ cd -
 A non-zero exit code means violations. Summarize the errors from the reports for the user and abort.
 Warnings do not block the release.
 
-### 2. Set the version of the changelog variables
+### 2. Check the page numbers
+
+After a sheet was added, removed or moved, the page numbers of the hierarchy can have gaps or duplicates,
+and the page links on the sheets (e.g. a text "Page 7" with the link `#7` next to a sheet symbol) can point
+to the wrong page. The sheet names of the table of contents and the outputs are read by page number, so
+both must be correct before the release. [check_pages.py](check_pages.py) from this directory checks them:
+
+```bash
+CHECK_PAGES=.github/skills/create-release/check_pages.py
+python3 "$CHECK_PAGES" "$INPUT_DIR/$BOARD.kicad_sch"
+```
+
+- Exit code `0`: page numbers and page links are correct, continue with step 3.
+- Exit code `1`: the script lists every difference. Show the list to the user and ask before fixing it.
+  The order of the current page numbers is kept, the pages are only numbered again without gaps.
+  With the approval of the user fix them and check again:
+
+  ```bash
+  python3 "$CHECK_PAGES" "$INPUT_DIR/$BOARD.kicad_sch" --fix
+  python3 "$CHECK_PAGES" "$INPUT_DIR/$BOARD.kicad_sch"
+  git diff --stat
+  ```
+
+- Exit code `2`: the schematic can not be read, abort.
+
+The schematic must not be open in KiCad while it is fixed (check for `*.lck` files in `INPUT_DIR`),
+otherwise KiCad overwrites the fix when the user saves. Only the page numbers and the page links are
+changed. The text variables `SHEET_NAME_<page>` of the table of contents follow the page numbers
+automatically, they are read from the netlist XML by the pipeline.
+
+### 3. Check the impedance table
+
+The fabrication documents contain the impedance table from
+`INPUT_DIR/kibot_resources/templates/impedance_table.txt` (header line plus one line per transmission line).
+It must match the layout. The transmission lines with controlled impedance are the net classes named
+`<Bus>_<Impedance>` (e.g. `USB_90`, `Ethernet_100`). Net classes without impedance (e.g. `GND`, `I2C`) are
+ignored. [check_impedance.py](check_impedance.py) from this directory splits the names into bus and
+impedance and takes the layer, the trace width, the gap and the reference layers from the layout:
+
+```bash
+CHECK_IMPEDANCE=.github/skills/create-release/check_impedance.py
+IMPEDANCE_TABLE="$INPUT_DIR/kibot_resources/templates/impedance_table.txt"
+python3 "$CHECK_IMPEDANCE" "$INPUT_DIR/$BOARD.kicad_pro" "$IMPEDANCE_TABLE"
+```
+
+The script prints the expected rows, the rows of the table and the problems. Exit code `0` means the
+table matches, continue with step 4. Exit code `2` means the input can not be read, abort. With exit
+code `1` go through the problems with the user. Ask instead of guessing, collect the questions and ask
+them together:
+
+| Problem                                   | Question to the user                                          |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| Unknown tolerance (`?`)                   | Impedance tolerance in percent (usually 10)                   |
+| Unknown reference layers (`?`)            | Reference layer(s) of the line (no ground zone next to it)    |
+| Net class without routed tracks           | Remove the net class from the project or keep it out of the table |
+| Tracks with another width than the class  | Fix the layout or the net class (the user decides, do not change the layout) |
+
+Then write the table with the answers and check again:
+
+```bash
+python3 "$CHECK_IMPEDANCE" "$INPUT_DIR/$BOARD.kicad_pro" "$IMPEDANCE_TABLE" --tolerance <percent> --write
+python3 "$CHECK_IMPEDANCE" "$INPUT_DIR/$BOARD.kicad_pro" "$IMPEDANCE_TABLE"
+```
+
+`--tolerance` is only needed when a row has no tolerance yet, existing tolerances are kept. A net class
+is only removed from `BOARD.kicad_pro` (entry in `net_settings.classes` and its `netclass_patterns`) with
+the approval of the user and while KiCad is closed (no `*.lck` files in `INPUT_DIR`). Do not continue
+before the check returns `0`.
+
+### 4. Set the version of the changelog variables
 
 The changelog of a version is written into the text variables `RELEASE_TITLE_<version>` and
 `RELEASE_BODY_<version>` by the KiBot preflight `set_text_variables`. The table on the revision history
@@ -241,17 +313,17 @@ git diff --stat
 
 Only change these values, keep the rest of the files untouched.
 
-### 3. Set the variant to CHECKED
+### 5. Set the variant to CHECKED
 
 In `.github/workflows/hw-pcb.yaml` set `  kibot_variant: <OLD>` to `  kibot_variant: CHECKED`.
 Only change this value, keep the rest of the file untouched.
 
-### 4. Commit and push to the development branch
+### 6. Commit and push to the development branch
 
 The commit message uses the version determined from the branch name, e.g. `Prepare Release 2.3.0` on `2.3.0_Dev`.
 
 ```bash
-# Working tree was clean before, so this only stages the changes of steps 2 and 3
+# Working tree was clean before, so this only stages the changes of steps 2 to 5
 git add -u
 git diff --cached --stat
 git commit -m "Prepare Release $VERSION"
@@ -260,7 +332,7 @@ git pull --rebase origin "$DEV_BRANCH"
 git_push origin "$DEV_BRANCH"
 ```
 
-### 5. Wait for the KiBot pipeline
+### 7. Wait for the KiBot pipeline
 
 ```bash
 SHA=$(git rev-parse HEAD)
@@ -272,7 +344,7 @@ gh run watch "$RUN_ID" --exit-status
 
 On failure show the failed jobs (`gh run view "$RUN_ID" --log-failed | tail -n 100`) and abort.
 
-### 6. Pull the netlist XML, switch to the main branch and merge the development branch
+### 8. Pull the netlist XML, switch to the main branch and merge the development branch
 
 The pipeline pushes the generated netlist XML (`INPUT_DIR/BOARD.xml`) back to the development branch.
 The release pipeline reads the sheet titles from it, so pull it before merging. The other outputs are
@@ -288,22 +360,22 @@ git pull --no-rebase --no-edit origin "$DEV_BRANCH"
 
 On merge conflicts stop and hand over to the user.
 
-### 7. Create the tag
+### 9. Create the tag
 
 The tag is the version determined from the branch name, e.g. tag `2.3.0` on `2.3.0_Dev`. It must match
-the version used in step 2 and in the commit message of step 4.
+the version used in step 4 and in the commit message of step 6.
 
 ```bash
 git tag "$VERSION"
 ```
 
-### 8. Push the main branch and the tag
+### 10. Push the main branch and the tag
 
 ```bash
 git_push --atomic origin "$MAIN_BRANCH" "$VERSION"
 ```
 
-### 9. Wait for the release pipeline
+### 11. Wait for the release pipeline
 
 The push of the tag starts the run that builds the release. The push of the main branch starts no run,
 `hw-pcb.yaml` is not triggered by the main branch. Only the tag run decides whether the release was
@@ -329,7 +401,7 @@ A failure of such a run does not fail the release: report it as a warning with t
 
 Report the release URL (`gh release view "$VERSION" --json url --jq .url`).
 
-### 10. Pull the release state
+### 12. Pull the release state
 
 The release pipeline pushes the updated `CHANGELOG.md` and the release outputs to the main branch.
 Pull them, so the local main branch has the released state:
@@ -341,3 +413,18 @@ git log --oneline -n 5
 ```
 
 `MAIN_BRANCH` is the branch from `master_branch` in `hw-pcb.yaml` (`main` or `master`).
+
+### 13. Check out the main branch
+
+The release ends with the main branch checked out, so the working copy shows the released state and no further
+work lands on the old development branch by accident. Do this as the last action, also when step 12 fails
+(e.g. because of local changes) or a run of the main branch failed in step 11:
+
+```bash
+git checkout "$MAIN_BRANCH"
+test "$(git branch --show-current)" = "$MAIN_BRANCH"
+git status -sb
+```
+
+If the checkout fails, report the error and the current branch to the user. Report the checked out branch in the
+summary.
